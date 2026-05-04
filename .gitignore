@@ -1,0 +1,20 @@
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env.local
+.env.*.local
+
+# Build artifacts
+tsconfig.tsbuildinfo
+
+# Convex
+.convex/
+
+# OS
+.DS_Store
+Thumbs.db
