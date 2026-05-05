@@ -1,7 +1,7 @@
 "use client";
-import { Music, Trash2, Clock } from "lucide-react";
+import { Music, Trash2, Clock, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatSec } from "@/lib/formatTime";
+import { formatSec, formatBytes } from "@/lib/formatTime";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -10,9 +10,10 @@ interface AudioFileCardProps {
   projectId: Id<"projects">;
   fileName: string;
   durationMs?: number;
+  fileSize?: number;
 }
 
-export function AudioFileCard({ projectId, fileName, durationMs }: AudioFileCardProps) {
+export function AudioFileCard({ projectId, fileName, durationMs, fileSize }: AudioFileCardProps) {
   const removeAudio = useMutation(api.projects.removeAudio);
 
   return (
@@ -22,12 +23,20 @@ export function AudioFileCard({ projectId, fileName, durationMs }: AudioFileCard
       </div>
       <div className="flex-1 min-w-0">
         <p className="truncate text-sm font-medium text-ink-primary">{fileName}</p>
-        {durationMs && (
-          <p className="flex items-center gap-1 text-xs text-ink-muted mt-0.5">
-            <Clock className="h-3 w-3" />
-            {formatSec(durationMs / 1000)}
-          </p>
-        )}
+        <div className="flex items-center gap-3 mt-0.5">
+          {durationMs !== undefined && durationMs > 0 && (
+            <span className="flex items-center gap-1 text-xs text-ink-muted">
+              <Clock className="h-3 w-3" />
+              {formatSec(durationMs / 1000)}
+            </span>
+          )}
+          {fileSize !== undefined && fileSize > 0 && (
+            <span className="flex items-center gap-1 text-xs text-ink-muted">
+              <HardDrive className="h-3 w-3" />
+              {formatBytes(fileSize)}
+            </span>
+          )}
+        </div>
       </div>
       <Button
         variant="ghost"

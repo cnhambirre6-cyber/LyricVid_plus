@@ -27,3 +27,10 @@ export function parseTimeInput(input: string): number | null {
 export function audioTimeMs(el: HTMLAudioElement): number {
   return Math.round(el.currentTime * 1000);
 }
+
+/** Format a byte count as a human-readable string (KB / MB) */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

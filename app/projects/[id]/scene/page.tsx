@@ -20,11 +20,8 @@ export default function SceneProjectWorkspace() {
   const params = useParams();
   const projectId = params.id as Id<"projects">;
 
-  const project = useQuery(api.projects.get, { id: projectId });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sceneProject = useQuery(api.sceneProjects.get, { projectId }) as any;
-  const characters = useQuery(api.characters.listByProject, { projectId }) ?? [];
-  const scenes = useQuery(api.scenes.listByProject, { projectId }) ?? [];
+  // Single workspace query replaces 4 separate subscriptions
+  const workspace = useQuery(api.workspace.getSceneProjectWorkspace, { projectId });
 
   const createJob = useMutation(api.generationJobs.create);
   const generateClip = useAction(api.generation.generateSceneClip);
@@ -32,15 +29,22 @@ export default function SceneProjectWorkspace() {
   const [selectedSceneId, setSelectedSceneId] = useState<Id<"scenes"> | null>(null);
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
 
+  const project = workspace?.project ?? null;
+  const sceneProject = workspace?.sceneProject ?? null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const selectedScene = (scenes as any[]).find((s: any) => s._id === selectedSceneId) ?? null;
+  const characters = (workspace?.characters ?? []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scenes = (workspace?.scenes ?? []) as any[];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selectedScene = scenes.find((s: any) => s._id === selectedSceneId) ?? null;
 
   const handleGenerateClip = async (sceneId: Id<"scenes">) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const scene = (scenes as any[]).find((s: any) => s._id === sceneId);
+    const scene = scenes.find((s: any) => s._id === sceneId);
     if (!scene) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const assignedChar = (characters as any[]).find((c: any) => c._id === scene.assignedCharacterId);
+    const assignedChar = characters.find((c: any) => c._id === scene.assignedCharacterId);
 
     const prompt = buildScenePrompt({
       description: scene.description,
@@ -80,14 +84,13 @@ export default function SceneProjectWorkspace() {
 
   const handleGenerateAll = async () => {
     for (const scene of scenes) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((scene as any).generationStatus !== "ready") {
+      if (scene.generationStatus !== "ready") {
         await handleGenerateClip(scene._id);
       }
     }
   };
 
-  if (!project) {
+  if (workspace === undefined) {
     return (
       <div className="min-h-screen bg-studio-bg">
         <StudioHeader />
@@ -102,8 +105,10 @@ export default function SceneProjectWorkspace() {
     );
   }
 
+  if (!project) return null;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const readyCount = (scenes as any[]).filter((s: any) => s.generationStatus === "ready").length;
+  const readyCount = scenes.filter((s: any) => s.generationStatus === "ready").length;
   const allReady = readyCount === scenes.length && scenes.length > 0;
 
   return (
@@ -138,6 +143,7 @@ export default function SceneProjectWorkspace() {
                 projectId={projectId}
                 fileName={project.audioFileName}
                 durationMs={project.audioDurationMs}
+                fileSize={project.audioFileSize}
               />
             ) : (
               <AudioUploader projectId={projectId} />

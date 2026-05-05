@@ -69,7 +69,7 @@ export function LyricPreviewPlayer({
             <p
               className={cn(
                 "text-white font-bold leading-tight drop-shadow-lg",
-                activeLine.emphasis ? "text-2xl md:text-3xl" : "text-xl md:text-2xl",
+                activeLine.emphasisStyle ? "text-2xl md:text-3xl" : "text-xl md:text-2xl",
                 lyricStyle === "fade-in" && "animate-fade-in",
                 lyricStyle === "slide-up" && "animate-slide-up",
                 lyricStyle === "word-glow" && "animate-pulse-glow text-shadow-glow",

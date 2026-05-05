@@ -19,8 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDebouncedProjectSave } from "@/hooks/useDebouncedProjectSave";
-import { parseLyrics, type ParsedLine } from "@/lib/parseLyrics";
 import type { LyricLine } from "@/components/lyric/LyricLineRow";
+import { type ParsedLine } from "@/lib/parseLyrics";
 import { Sparkles, Download, Music2 } from "lucide-react";
 
 function toLocalLines(parsed: ParsedLine[]): LyricLine[] {
@@ -31,13 +31,9 @@ export default function LyricVideoWorkspace() {
   const params = useParams();
   const projectId = params.id as Id<"projects">;
 
-  const project = useQuery(api.projects.get, { id: projectId });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lyricProject = useQuery(api.lyricVideoProjects.get, { projectId }) as any;
-  const savedLines = useQuery(api.lyricLines.listByProject, { projectId });
+  // Single workspace query replaces 4 separate subscriptions
+  const workspace = useQuery(api.workspace.getLyricVideoWorkspace, { projectId });
 
-  const upsertLine = useMutation(api.lyricLines.upsertLine);
-  const deleteLine = useMutation(api.lyricLines.deleteLine);
   const replaceAll = useMutation(api.lyricLines.replaceAll);
   const updateBasics = useMutation(api.projects.updateBasics);
   const updateLyricContent = useMutation(api.lyricVideoProjects.updateContent);
@@ -46,7 +42,6 @@ export default function LyricVideoWorkspace() {
 
   const debouncedSave = useDebouncedProjectSave(projectId);
 
-  // Debounce for lyric-specific content (rawLyrics, backgroundPrompt)
   const lyricTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedLyricSave = useCallback(
     (fields: { rawLyrics?: string; backgroundPrompt?: string; lyricStylePreset?: string }) => {
@@ -63,7 +58,9 @@ export default function LyricVideoWorkspace() {
   const [localLines, setLocalLines] = useState<LyricLine[]>([]);
   const [currentMs, setCurrentMs] = useState(0);
   const [generating, setGenerating] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  const project = workspace?.project;
+  const lyricProject = workspace?.lyricProject;
 
   useEffect(() => {
     if (!project) return;
@@ -75,12 +72,11 @@ export default function LyricVideoWorkspace() {
     setRawLyrics(lyricProject.rawLyrics ?? "");
   }, [lyricProject?.projectId]);
 
-  // Sync saved lines from DB
+  // Sync timing lines from workspace
   useEffect(() => {
-    if (!savedLines) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!workspace?.lyricLines) return;
     setLocalLines(
-      (savedLines as any[]).map((l: any) => ({
+      workspace.lyricLines.map((l: typeof workspace.lyricLines[number]) => ({
         id: l._id,
         order: l.order,
         text: l.text,
@@ -90,15 +86,7 @@ export default function LyricVideoWorkspace() {
         animationPreset: l.animationPreset,
       }))
     );
-  }, [savedLines]);
-
-  const audioStorageUrl = useQuery(
-    api.files.getStorageUrl,
-    project?.audioStorageId ? { storageId: project.audioStorageId } : "skip"
-  );
-  useEffect(() => {
-    if (audioStorageUrl) setAudioUrl(audioStorageUrl);
-  }, [audioStorageUrl]);
+  }, [workspace?.lyricLines]);
 
   const handleImportLines = useCallback(
     (parsed: ParsedLine[]) => {
@@ -140,7 +128,7 @@ export default function LyricVideoWorkspace() {
     }
   };
 
-  if (!project) {
+  if (workspace === undefined) {
     return (
       <div className="min-h-screen bg-studio-bg">
         <StudioHeader />
@@ -155,6 +143,8 @@ export default function LyricVideoWorkspace() {
       </div>
     );
   }
+
+  if (!project) return null;
 
   return (
     <div className="min-h-screen bg-studio-bg">
@@ -195,6 +185,7 @@ export default function LyricVideoWorkspace() {
                 projectId={projectId}
                 fileName={project.audioFileName}
                 durationMs={project.audioDurationMs}
+                fileSize={project.audioFileSize}
               />
             ) : (
               <AudioUploader projectId={projectId} onUploaded={() => {}} />
@@ -268,14 +259,14 @@ export default function LyricVideoWorkspace() {
         {/* Right — preview player */}
         <div className="flex flex-col gap-4">
           <LyricPreviewPlayer
-            audioUrl={audioUrl ?? undefined}
+            audioUrl={workspace.audioStorageUrl ?? undefined}
             videoUrl={lyricProject?.generatedVideoUrl}
             lines={localLines}
             lyricStyle={lyricProject?.lyricStylePreset}
             onTimeUpdate={setCurrentMs}
           />
           <p className="text-xs text-ink-muted text-center">
-            {audioUrl
+            {workspace.audioStorageUrl
               ? "Audio is the master sync source. Video is muted."
               : "Upload an audio track to enable playback and lyric sync."}
           </p>
