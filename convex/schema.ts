@@ -36,9 +36,13 @@ export default defineSchema({
     status: projectStatus,
     mood: v.optional(v.string()),
     stylePreset: v.optional(v.string()),
+    // Audio file stored in Convex File Storage
     audioStorageId: v.optional(v.id("_storage")),
     audioFileName: v.optional(v.string()),
+    audioMimeType: v.optional(v.string()),
+    audioFileSize: v.optional(v.number()),
     audioDurationMs: v.optional(v.number()),
+    audioUploadedAt: v.optional(v.number()),
     // Cached URL set from the first generated asset — used for dashboard thumbnails
     coverImageUrl: v.optional(v.string()),
     createdAt: v.number(),

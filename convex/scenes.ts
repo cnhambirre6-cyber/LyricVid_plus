@@ -9,6 +9,8 @@ const generationStatus = v.union(
   v.literal("failed")
 );
 
+// ── Queries ────────────────────────────────────────────────────────────────
+
 export const listByProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) =>
@@ -23,6 +25,8 @@ export const get = query({
   args: { id: v.id("scenes") },
   handler: async (ctx, { id }) => ctx.db.get(id),
 });
+
+// ── Mutations ──────────────────────────────────────────────────────────────
 
 export const create = mutation({
   args: {
@@ -45,7 +49,6 @@ export const update = mutation({
     id: v.id("scenes"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    assignedCharacterId: v.optional(v.id("characters")),
     targetDurationMs: v.optional(v.number()),
     mood: v.optional(v.string()),
     stylePreset: v.optional(v.string()),
@@ -53,6 +56,15 @@ export const update = mutation({
     promptPreview: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...fields }) => ctx.db.patch(id, fields),
+});
+
+export const assignCharacter = mutation({
+  args: {
+    id: v.id("scenes"),
+    characterId: v.optional(v.id("characters")),
+  },
+  handler: async (ctx, { id, characterId }) =>
+    ctx.db.patch(id, { assignedCharacterId: characterId }),
 });
 
 export const setGenerationStatus = mutation({

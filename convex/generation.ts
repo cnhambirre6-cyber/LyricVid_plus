@@ -67,8 +67,7 @@ export const generateSceneClip = action({
     durationMs: v.optional(v.number()),
   },
   handler: async (ctx, { jobId, sceneId, projectId, prompt, characterImageUrl, durationMs }) => {
-    await ctx.runMutation(api.generationJobs.updateStatus, { id: jobId, status: "running" });
-    await ctx.runMutation(api.scenes.setGenerationStatus, { id: sceneId, status: "running" });
+    await ctx.runMutation(api.generationJobs.markSceneGenerationStarted, { jobId, sceneId });
 
     try {
       const durationSec = durationMs ? Math.max(1, Math.round(durationMs / 1000)) : 5;
@@ -91,20 +90,18 @@ export const generateSceneClip = action({
         outputUrl = await pollUntilDone(prediction.id);
       }
 
-      await ctx.runMutation(api.scenes.linkClip, { id: sceneId, clipVideoUrl: outputUrl });
-      await ctx.runMutation(api.generationJobs.updateStatus, {
-        id: jobId,
-        status: "ready",
-        outputSnapshot: { url: outputUrl },
+      await ctx.runMutation(api.generationJobs.markSceneGenerationCompleted, {
+        jobId,
+        sceneId,
+        clipVideoUrl: outputUrl,
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      await ctx.runMutation(api.generationJobs.updateStatus, {
-        id: jobId,
-        status: "failed",
+      await ctx.runMutation(api.generationJobs.markSceneGenerationFailed, {
+        jobId,
+        sceneId,
         errorMessage,
       });
-      await ctx.runMutation(api.scenes.setGenerationStatus, { id: sceneId, status: "failed" });
     }
   },
 });

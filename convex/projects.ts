@@ -1,6 +1,25 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const ACCEPTED_AUDIO_TYPES = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/aac",
+  "audio/ogg",
+  "audio/flac",
+  "audio/x-flac",
+]);
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024; // 50 MB
+
+// ── Queries ────────────────────────────────────────────────────────────────
+
+export const get = query({
+  args: { id: v.id("projects") },
+  handler: async (ctx, { id }) => ctx.db.get(id),
+});
+
 export const list = query({
   args: { type: v.optional(v.union(v.literal("lyricVideo"), v.literal("sceneProject"))) },
   handler: async (ctx, { type }) => {
@@ -15,10 +34,20 @@ export const list = query({
   },
 });
 
-export const get = query({
-  args: { id: v.id("projects") },
-  handler: async (ctx, { id }) => ctx.db.get(id),
+export const listRecent = query({
+  args: {
+    type: v.optional(v.union(v.literal("lyricVideo"), v.literal("sceneProject"))),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { type, limit = 20 }) => {
+    const q = type
+      ? ctx.db.query("projects").withIndex("by_type", (q) => q.eq("type", type))
+      : ctx.db.query("projects").withIndex("by_createdAt");
+    return q.order("desc").take(limit);
+  },
 });
+
+// ── Mutations ──────────────────────────────────────────────────────────────
 
 export const create = mutation({
   args: {
@@ -69,13 +98,31 @@ export const linkAudio = mutation({
     id: v.id("projects"),
     storageId: v.id("_storage"),
     fileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
     durationMs: v.optional(v.number()),
   },
-  handler: async (ctx, { id, storageId, fileName, durationMs }) => {
+  handler: async (ctx, { id, storageId, fileName, mimeType, fileSize, durationMs }) => {
+    if (!ACCEPTED_AUDIO_TYPES.has(mimeType)) {
+      throw new Error(`Unsupported audio format: ${mimeType}`);
+    }
+    if (fileSize > MAX_AUDIO_BYTES) {
+      throw new Error(`File size ${fileSize} exceeds the 50 MB limit`);
+    }
+
+    // Delete previous audio from storage when replacing
+    const project = await ctx.db.get(id);
+    if (project?.audioStorageId && project.audioStorageId !== storageId) {
+      await ctx.storage.delete(project.audioStorageId);
+    }
+
     await ctx.db.patch(id, {
       audioStorageId: storageId,
       audioFileName: fileName,
+      audioMimeType: mimeType,
+      audioFileSize: fileSize,
       audioDurationMs: durationMs,
+      audioUploadedAt: Date.now(),
       updatedAt: Date.now(),
     });
   },
@@ -89,7 +136,10 @@ export const removeAudio = mutation({
     await ctx.db.patch(id, {
       audioStorageId: undefined,
       audioFileName: undefined,
+      audioMimeType: undefined,
+      audioFileSize: undefined,
       audioDurationMs: undefined,
+      audioUploadedAt: undefined,
       updatedAt: Date.now(),
     });
   },
@@ -119,7 +169,6 @@ export const remove = mutation({
 
     if (project.audioStorageId) await ctx.storage.delete(project.audioStorageId);
 
-    // Satellite: lyricVideoProject
     const lyricProject = await ctx.db
       .query("lyricVideoProjects")
       .withIndex("by_project", (q) => q.eq("projectId", id))
@@ -131,7 +180,6 @@ export const remove = mutation({
       await ctx.db.delete(lyricProject._id);
     }
 
-    // Satellite: sceneProject
     const sceneProject = await ctx.db
       .query("sceneProjects")
       .withIndex("by_project", (q) => q.eq("projectId", id))
