@@ -4,20 +4,13 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type SaveableFields = {
+// Only fields that live on the shared projects record
+type ProjectFields = {
   title?: string;
   mood?: string;
   stylePreset?: string;
-  rawLyrics?: string;
-  lyricStylePreset?: string;
-  backgroundPrompt?: string;
-  summary?: string;
 };
 
-/**
- * Debounced auto-save for project basics.
- * Waits DELAY ms of inactivity before committing to Convex.
- */
 export function useDebouncedProjectSave(
   projectId: Id<"projects"> | undefined,
   delay = 800
@@ -26,7 +19,7 @@ export function useDebouncedProjectSave(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const save = useCallback(
-    (fields: SaveableFields) => {
+    (fields: ProjectFields) => {
       if (!projectId) return;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
@@ -36,7 +29,12 @@ export function useDebouncedProjectSave(
     [projectId, updateBasics, delay]
   );
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    []
+  );
 
   return save;
 }

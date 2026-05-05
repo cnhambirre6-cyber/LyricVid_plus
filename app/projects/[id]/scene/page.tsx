@@ -21,12 +21,13 @@ export default function SceneProjectWorkspace() {
   const projectId = params.id as Id<"projects">;
 
   const project = useQuery(api.projects.get, { id: projectId });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sceneProject = useQuery(api.sceneProjects.get, { projectId }) as any;
   const characters = useQuery(api.characters.listByProject, { projectId }) ?? [];
   const scenes = useQuery(api.scenes.listByProject, { projectId }) ?? [];
 
   const createJob = useMutation(api.generationJobs.create);
   const generateClip = useAction(api.generation.generateSceneClip);
-  const setSceneStatus = useMutation(api.scenes.setStatus);
 
   const [selectedSceneId, setSelectedSceneId] = useState<Id<"scenes"> | null>(null);
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
@@ -44,7 +45,7 @@ export default function SceneProjectWorkspace() {
     const prompt = buildScenePrompt({
       description: scene.description,
       mood: scene.mood,
-      style: scene.style,
+      stylePreset: scene.stylePreset,
       cinematicDirection: scene.cinematicDirection,
       characterName: assignedChar?.name,
       characterDescription: assignedChar?.description,
@@ -53,14 +54,20 @@ export default function SceneProjectWorkspace() {
     setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
 
     try {
-      const jobId = await createJob({ projectId, sceneId, type: "sceneClip", provider: "replicate" });
+      const jobId = await createJob({
+        projectId,
+        sceneId,
+        type: "sceneClip",
+        provider: "replicate",
+        inputSnapshot: { prompt, sceneId },
+      });
       await generateClip({
         jobId,
         sceneId,
         projectId,
         prompt,
         characterImageUrl: assignedChar?.imageUrl,
-        durationSec: scene.targetDurationSec,
+        durationMs: scene.targetDurationMs,
       });
     } finally {
       setGeneratingSceneIds((prev) => {
@@ -73,7 +80,8 @@ export default function SceneProjectWorkspace() {
 
   const handleGenerateAll = async () => {
     for (const scene of scenes) {
-      if (scene.status !== "ready") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((scene as any).generationStatus !== "ready") {
         await handleGenerateClip(scene._id);
       }
     }
@@ -95,7 +103,7 @@ export default function SceneProjectWorkspace() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const readyCount = (scenes as any[]).filter((s: any) => s.status === "ready").length;
+  const readyCount = (scenes as any[]).filter((s: any) => s.generationStatus === "ready").length;
   const allReady = readyCount === scenes.length && scenes.length > 0;
 
   return (
@@ -105,9 +113,9 @@ export default function SceneProjectWorkspace() {
         actions={
           <div className="flex items-center gap-3">
             <GenerationStatusBadge status={project.status} />
-            {project.finalVideoUrl && (
+            {sceneProject?.finalVideoUrl && (
               <Button variant="secondary" size="sm" asChild>
-                <a href={project.finalVideoUrl} download target="_blank" rel="noreferrer">
+                <a href={sceneProject.finalVideoUrl} download target="_blank" rel="noreferrer">
                   <Download className="h-4 w-4" />
                   Download final
                 </a>
@@ -120,7 +128,6 @@ export default function SceneProjectWorkspace() {
       <main className="mx-auto max-w-7xl px-6 py-6 space-y-6">
         {/* Top strip: audio + stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {/* Audio */}
           <div className="surface p-4 col-span-2">
             <div className="flex items-center gap-2 mb-3">
               <Music2 className="h-4 w-4 text-ink-muted" />
@@ -137,7 +144,6 @@ export default function SceneProjectWorkspace() {
             )}
           </div>
 
-          {/* Stats */}
           <div className="surface p-4 flex flex-col justify-between">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-ink-muted" />
@@ -164,12 +170,10 @@ export default function SceneProjectWorkspace() {
 
         {/* Main workspace: storyboard + editor */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-          {/* Left: Characters + Storyboard */}
           <div className="flex flex-col gap-6">
             <div className="surface p-5">
               <CharacterManager projectId={projectId} characters={characters} />
             </div>
-
             <div className="surface p-5">
               <SceneStoryboard
                 projectId={projectId}
@@ -181,7 +185,6 @@ export default function SceneProjectWorkspace() {
             </div>
           </div>
 
-          {/* Right: Scene editor */}
           <div className="surface-elevated sticky top-20 self-start h-fit">
             {selectedScene ? (
               <SceneEditorPanel
@@ -221,11 +224,11 @@ export default function SceneProjectWorkspace() {
           </div>
         )}
 
-        {project.finalVideoUrl && (
+        {sceneProject?.finalVideoUrl && (
           <div className="surface p-5">
             <p className="text-sm font-semibold text-ink-primary mb-3">Final video</p>
             <video
-              src={project.finalVideoUrl}
+              src={sceneProject.finalVideoUrl}
               controls
               className="w-full rounded-studio aspect-video bg-studio-bg"
             />

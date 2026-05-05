@@ -1,18 +1,16 @@
 "use client";
 import { Play, RefreshCw, Download, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GenerationStatusBadge } from "@/components/shared/GenerationStatusBadge";
+import { GenerationStatusBadge, type GenerationStatusValue } from "@/components/shared/GenerationStatusBadge";
 import { cn } from "@/lib/utils";
 import type { Id } from "@/convex/_generated/dataModel";
-
-type SceneStatus = "draft" | "queued" | "generating" | "ready" | "failed";
 
 interface ClipPreviewCardProps {
   sceneId: Id<"scenes">;
   title?: string;
   order: number;
-  status: SceneStatus;
-  clipUrl?: string;
+  generationStatus: GenerationStatusValue;
+  clipVideoUrl?: string;
   isSelected?: boolean;
   onSelect?: () => void;
   onRegenerate?: () => void;
@@ -22,8 +20,8 @@ export function ClipPreviewCard({
   sceneId,
   title,
   order,
-  status,
-  clipUrl,
+  generationStatus,
+  clipVideoUrl,
   isSelected,
   onSelect,
   onRegenerate,
@@ -40,9 +38,9 @@ export function ClipPreviewCard({
     >
       {/* Thumbnail */}
       <div className="relative aspect-video bg-studio-bg">
-        {clipUrl ? (
+        {clipVideoUrl ? (
           <video
-            src={clipUrl}
+            src={clipVideoUrl}
             className="absolute inset-0 h-full w-full object-cover"
             muted
             playsInline
@@ -53,21 +51,18 @@ export function ClipPreviewCard({
           </div>
         )}
 
-        {/* Scene number badge */}
         <div className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs font-bold text-white">
           {order + 1}
         </div>
 
-        {/* Play overlay on hover */}
-        {clipUrl && (
+        {clipVideoUrl && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
             <Play className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         )}
 
-        {/* Status */}
         <div className="absolute bottom-2 right-2">
-          <GenerationStatusBadge status={status} />
+          <GenerationStatusBadge status={generationStatus} />
         </div>
       </div>
 
@@ -77,7 +72,7 @@ export function ClipPreviewCard({
           {title ?? `Scene ${order + 1}`}
         </p>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {clipUrl && (
+          {clipVideoUrl && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -85,7 +80,7 @@ export function ClipPreviewCard({
               onClick={(e) => e.stopPropagation()}
               title="Download clip"
             >
-              <a href={clipUrl} download target="_blank" rel="noreferrer">
+              <a href={clipVideoUrl} download target="_blank" rel="noreferrer">
                 <Download className="h-3.5 w-3.5" />
               </a>
             </Button>

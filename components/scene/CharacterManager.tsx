@@ -13,7 +13,7 @@ interface Character {
   name: string;
   description?: string;
   imageUrl?: string;
-  personaNotes?: string;
+  styleNotes?: string;
 }
 
 interface CharacterManagerProps {
@@ -86,7 +86,7 @@ export function CharacterManager({ projectId, characters }: CharacterManagerProp
               name={char.name}
               description={char.description}
               imageUrl={char.imageUrl}
-              personaNotes={char.personaNotes}
+              styleNotes={char.styleNotes}
             />
           ))}
         </div>

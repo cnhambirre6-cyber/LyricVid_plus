@@ -19,8 +19,8 @@ export const upsertLine = mutation({
     text: v.string(),
     startMs: v.number(),
     endMs: v.optional(v.number()),
-    emphasis: v.optional(v.boolean()),
-    displayStyle: v.optional(v.string()),
+    emphasisStyle: v.optional(v.string()),
+    animationPreset: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...data }) => {
     if (id) {
@@ -41,9 +41,7 @@ export const reorderLines = mutation({
     updates: v.array(v.object({ id: v.id("lyricTimingLines"), order: v.number() })),
   },
   handler: async (ctx, { updates }) => {
-    for (const { id, order } of updates) {
-      await ctx.db.patch(id, { order });
-    }
+    for (const { id, order } of updates) await ctx.db.patch(id, { order });
   },
 });
 

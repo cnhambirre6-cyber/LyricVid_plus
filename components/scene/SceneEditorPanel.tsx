@@ -22,9 +22,9 @@ interface Scene {
   title?: string;
   description: string;
   assignedCharacterId?: Id<"characters">;
-  targetDurationSec?: number;
+  targetDurationMs?: number;
   mood?: string;
-  style?: string;
+  stylePreset?: string;
   cinematicDirection?: string;
   promptPreview?: string;
 }
@@ -43,9 +43,9 @@ export function SceneEditorPanel({ scene, characters, onGenerateClip, isGenerati
     title: scene.title ?? "",
     description: scene.description,
     assignedCharacterId: scene.assignedCharacterId as Id<"characters"> | undefined,
-    targetDurationSec: scene.targetDurationSec ?? 5,
+    targetDurationMs: scene.targetDurationMs ?? 5000,
     mood: scene.mood ?? "",
-    style: scene.style ?? "",
+    stylePreset: scene.stylePreset ?? "",
     cinematicDirection: scene.cinematicDirection ?? "",
   });
 
@@ -54,31 +54,26 @@ export function SceneEditorPanel({ scene, characters, onGenerateClip, isGenerati
   const generatedPrompt = buildScenePrompt({
     description: draft.description,
     mood: draft.mood,
-    style: draft.style,
+    stylePreset: draft.stylePreset,
     cinematicDirection: draft.cinematicDirection,
     characterName: assignedChar?.name,
     characterDescription: assignedChar?.description,
   });
 
-  // Sync if scene changes (e.g. different scene selected)
   useEffect(() => {
     setDraft({
       title: scene.title ?? "",
       description: scene.description,
       assignedCharacterId: scene.assignedCharacterId as Id<"characters"> | undefined,
-      targetDurationSec: scene.targetDurationSec ?? 5,
+      targetDurationMs: scene.targetDurationMs ?? 5000,
       mood: scene.mood ?? "",
-      style: scene.style ?? "",
+      stylePreset: scene.stylePreset ?? "",
       cinematicDirection: scene.cinematicDirection ?? "",
     });
   }, [scene._id]);
 
   const save = () => {
-    updateScene({
-      id: scene._id,
-      ...draft,
-      promptPreview: generatedPrompt,
-    });
+    updateScene({ id: scene._id, ...draft, promptPreview: generatedPrompt });
   };
 
   return (
@@ -148,20 +143,19 @@ export function SceneEditorPanel({ scene, characters, onGenerateClip, isGenerati
         />
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex flex-col gap-1 flex-1">
-          <label className="text-xs font-medium text-ink-secondary">Duration (sec)</label>
-          <Input
-            type="number"
-            min={1}
-            max={30}
-            value={draft.targetDurationSec}
-            onChange={(e) => setDraft((d) => ({ ...d, targetDurationSec: Number(e.target.value) }))}
-          />
-        </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-ink-secondary">Duration (seconds)</label>
+        <Input
+          type="number"
+          min={1}
+          max={30}
+          value={Math.round(draft.targetDurationMs / 1000)}
+          onChange={(e) =>
+            setDraft((d) => ({ ...d, targetDurationMs: Number(e.target.value) * 1000 }))
+          }
+        />
       </div>
 
-      {/* Prompt preview */}
       <div className="flex flex-col gap-1 rounded-studio bg-studio-elevated border border-studio-border p-3">
         <p className="text-xs font-medium text-ink-muted mb-1">Generated prompt preview</p>
         <p className="text-xs text-ink-secondary leading-relaxed italic">{generatedPrompt}</p>

@@ -12,7 +12,8 @@ export interface LyricLine {
   text: string;
   startMs: number;
   endMs?: number;
-  emphasis?: boolean;
+  emphasisStyle?: string;
+  animationPreset?: string;
 }
 
 interface LyricLineRowProps {
@@ -39,6 +40,10 @@ export function LyricLineRow({ line, isActive, onChange, onDelete, onStamp }: Ly
     }
   };
 
+  const toggleEmphasis = () => {
+    onChange(line.id, { emphasisStyle: line.emphasisStyle ? undefined : "bold" });
+  };
+
   return (
     <div
       className={cn(
@@ -48,10 +53,8 @@ export function LyricLineRow({ line, isActive, onChange, onDelete, onStamp }: Ly
           : "bg-studio-surface border border-studio-border hover:border-studio-ring"
       )}
     >
-      {/* Drag handle */}
       <GripVertical className="h-4 w-4 shrink-0 text-ink-muted cursor-grab active:cursor-grabbing opacity-40 group-hover:opacity-100" />
 
-      {/* Start time */}
       <div className="flex items-center gap-1 shrink-0">
         <input
           value={startInput}
@@ -76,7 +79,6 @@ export function LyricLineRow({ line, isActive, onChange, onDelete, onStamp }: Ly
         )}
       </div>
 
-      {/* Text */}
       <input
         value={line.text}
         onChange={(e) => onChange(line.id, { text: e.target.value })}
@@ -87,13 +89,12 @@ export function LyricLineRow({ line, isActive, onChange, onDelete, onStamp }: Ly
         placeholder="Lyric line…"
       />
 
-      {/* Emphasis toggle */}
       <button
         type="button"
-        onClick={() => onChange(line.id, { emphasis: !line.emphasis })}
+        onClick={toggleEmphasis}
         className={cn(
           "shrink-0 text-xs px-2 py-0.5 rounded transition-colors",
-          line.emphasis
+          line.emphasisStyle
             ? "bg-accent-muted text-ink-accent"
             : "text-ink-muted hover:text-ink-secondary"
         )}
@@ -102,7 +103,6 @@ export function LyricLineRow({ line, isActive, onChange, onDelete, onStamp }: Ly
         ★
       </button>
 
-      {/* Delete */}
       <Button
         variant="ghost"
         size="icon-sm"

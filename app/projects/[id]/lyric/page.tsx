@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -32,16 +32,31 @@ export default function LyricVideoWorkspace() {
   const projectId = params.id as Id<"projects">;
 
   const project = useQuery(api.projects.get, { id: projectId });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lyricProject = useQuery(api.lyricVideoProjects.get, { projectId }) as any;
   const savedLines = useQuery(api.lyricLines.listByProject, { projectId });
 
   const upsertLine = useMutation(api.lyricLines.upsertLine);
   const deleteLine = useMutation(api.lyricLines.deleteLine);
   const replaceAll = useMutation(api.lyricLines.replaceAll);
   const updateBasics = useMutation(api.projects.updateBasics);
+  const updateLyricContent = useMutation(api.lyricVideoProjects.updateContent);
   const createJob = useMutation(api.generationJobs.create);
   const generateBg = useAction(api.generation.generateBackgroundImage);
 
   const debouncedSave = useDebouncedProjectSave(projectId);
+
+  // Debounce for lyric-specific content (rawLyrics, backgroundPrompt)
+  const lyricTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedLyricSave = useCallback(
+    (fields: { rawLyrics?: string; backgroundPrompt?: string; lyricStylePreset?: string }) => {
+      if (lyricTimerRef.current) clearTimeout(lyricTimerRef.current);
+      lyricTimerRef.current = setTimeout(() => {
+        updateLyricContent({ projectId, ...fields });
+      }, 800);
+    },
+    [projectId, updateLyricContent]
+  );
 
   const [title, setTitle] = useState("");
   const [rawLyrics, setRawLyrics] = useState("");
@@ -50,12 +65,15 @@ export default function LyricVideoWorkspace() {
   const [generating, setGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
-  // Sync project fields once loaded
   useEffect(() => {
     if (!project) return;
     setTitle(project.title);
-    setRawLyrics(project.rawLyrics ?? "");
   }, [project?._id]);
+
+  useEffect(() => {
+    if (!lyricProject) return;
+    setRawLyrics(lyricProject.rawLyrics ?? "");
+  }, [lyricProject?.projectId]);
 
   // Sync saved lines from DB
   useEffect(() => {
@@ -68,12 +86,12 @@ export default function LyricVideoWorkspace() {
         text: l.text,
         startMs: l.startMs,
         endMs: l.endMs,
-        emphasis: l.emphasis,
+        emphasisStyle: l.emphasisStyle,
+        animationPreset: l.animationPreset,
       }))
     );
   }, [savedLines]);
 
-  // Resolve audio URL from storage
   const audioStorageUrl = useQuery(
     api.files.getStorageUrl,
     project?.audioStorageId ? { storageId: project.audioStorageId } : "skip"
@@ -101,18 +119,20 @@ export default function LyricVideoWorkspace() {
 
   const handleLyricsChange = (v: string) => {
     setRawLyrics(v);
-    debouncedSave({ rawLyrics: v });
+    debouncedLyricSave({ rawLyrics: v });
   };
 
   const handleGenerate = async () => {
     if (!project) return;
     setGenerating(true);
     try {
-      const jobId = await createJob({ projectId, type: "backgroundImage" });
+      const jobId = await createJob({ projectId, type: "lyricBackground", provider: "replicate" });
       await generateBg({
         jobId,
         projectId,
-        prompt: project.backgroundPrompt ?? `${project.mood ?? "cinematic"} music video background`,
+        prompt:
+          lyricProject?.backgroundPrompt ??
+          `${project.mood ?? "cinematic"} music video background`,
         mood: project.mood,
       });
     } finally {
@@ -142,10 +162,10 @@ export default function LyricVideoWorkspace() {
         title={project.title}
         actions={
           <div className="flex items-center gap-2">
-            <GenerationStatusBadge status={project.status} />
-            {project.generatedVideoUrl && (
+            <GenerationStatusBadge status={lyricProject?.generationStatus ?? project.status} />
+            {lyricProject?.generatedVideoUrl && (
               <Button variant="secondary" size="sm" asChild>
-                <a href={project.generatedVideoUrl} download target="_blank" rel="noreferrer">
+                <a href={lyricProject.generatedVideoUrl} download target="_blank" rel="noreferrer">
                   <Download className="h-4 w-4" />
                   Export
                 </a>
@@ -158,7 +178,6 @@ export default function LyricVideoWorkspace() {
       <main className="mx-auto max-w-7xl px-6 py-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
         {/* Left — editor panel */}
         <div className="flex flex-col gap-5">
-          {/* Title */}
           <div className="surface p-5 flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-ink-secondary">Project title</label>
@@ -166,7 +185,6 @@ export default function LyricVideoWorkspace() {
             </div>
           </div>
 
-          {/* Audio */}
           <div className="surface p-5 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Music2 className="h-4 w-4 text-ink-muted" />
@@ -179,14 +197,10 @@ export default function LyricVideoWorkspace() {
                 durationMs={project.audioDurationMs}
               />
             ) : (
-              <AudioUploader
-                projectId={projectId}
-                onUploaded={() => {}}
-              />
+              <AudioUploader projectId={projectId} onUploaded={() => {}} />
             )}
           </div>
 
-          {/* Lyrics + Timeline */}
           <div className="surface p-5">
             <Tabs defaultValue="editor">
               <TabsList className="w-full">
@@ -229,23 +243,19 @@ export default function LyricVideoWorkspace() {
                     <label className="text-xs font-medium text-ink-secondary">Lyric display style</label>
                     <StylePresetPicker
                       mode="lyric"
-                      value={project.lyricStylePreset}
-                      onChange={(v) => updateBasics({ id: projectId, lyricStylePreset: v })}
+                      value={lyricProject?.lyricStylePreset}
+                      onChange={(v) => updateLyricContent({ projectId, lyricStylePreset: v })}
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium text-ink-secondary">Background prompt</label>
                     <Textarea
-                      value={project.backgroundPrompt ?? ""}
-                      onChange={(e) => debouncedSave({ backgroundPrompt: e.target.value })}
+                      value={lyricProject?.backgroundPrompt ?? ""}
+                      onChange={(e) => debouncedLyricSave({ backgroundPrompt: e.target.value })}
                       placeholder="Describe the visual background… e.g. 'rain-soaked city at midnight, neon reflections'"
                     />
                   </div>
-                  <Button
-                    variant="primary"
-                    onClick={handleGenerate}
-                    disabled={generating}
-                  >
+                  <Button variant="primary" onClick={handleGenerate} disabled={generating}>
                     <Sparkles className="h-4 w-4" />
                     {generating ? "Generating background…" : "Generate background"}
                   </Button>
@@ -259,9 +269,9 @@ export default function LyricVideoWorkspace() {
         <div className="flex flex-col gap-4">
           <LyricPreviewPlayer
             audioUrl={audioUrl ?? undefined}
-            videoUrl={project.generatedVideoUrl}
+            videoUrl={lyricProject?.generatedVideoUrl}
             lines={localLines}
-            lyricStyle={project.lyricStylePreset}
+            lyricStyle={lyricProject?.lyricStylePreset}
             onTimeUpdate={setCurrentMs}
           />
           <p className="text-xs text-ink-muted text-center">

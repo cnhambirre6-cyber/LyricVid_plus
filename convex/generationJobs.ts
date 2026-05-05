@@ -1,6 +1,19 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const jobStatus = v.union(
+  v.literal("queued"),
+  v.literal("running"),
+  v.literal("ready"),
+  v.literal("failed")
+);
+
+const jobType = v.union(
+  v.literal("lyricBackground"),
+  v.literal("sceneClip"),
+  v.literal("finalStitch")
+);
+
 export const listByProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) =>
@@ -25,13 +38,9 @@ export const create = mutation({
   args: {
     projectId: v.id("projects"),
     sceneId: v.optional(v.id("scenes")),
-    type: v.union(
-      v.literal("lyricVideo"),
-      v.literal("sceneClip"),
-      v.literal("videoStitch"),
-      v.literal("backgroundImage")
-    ),
+    type: jobType,
     provider: v.optional(v.string()),
+    inputSnapshot: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -47,14 +56,9 @@ export const create = mutation({
 export const updateStatus = mutation({
   args: {
     id: v.id("generationJobs"),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("generating"),
-      v.literal("ready"),
-      v.literal("failed")
-    ),
+    status: jobStatus,
     providerJobId: v.optional(v.string()),
-    outputUrl: v.optional(v.string()),
+    outputSnapshot: v.optional(v.any()),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...fields }) =>

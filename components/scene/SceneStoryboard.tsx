@@ -5,16 +5,15 @@ import { ClipPreviewCard } from "./ClipPreviewCard";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-
-type SceneStatus = "draft" | "queued" | "generating" | "ready" | "failed";
+import type { GenerationStatusValue } from "@/components/shared/GenerationStatusBadge";
 
 interface Scene {
   _id: Id<"scenes">;
   order: number;
   title?: string;
   description: string;
-  status: SceneStatus;
-  clipUrl?: string;
+  generationStatus: GenerationStatusValue;
+  clipVideoUrl?: string;
 }
 
 interface SceneStoryboardProps {
@@ -35,11 +34,7 @@ export function SceneStoryboard({
   const createScene = useMutation(api.scenes.create);
 
   const addScene = () => {
-    createScene({
-      projectId,
-      order: scenes.length,
-      description: "",
-    });
+    createScene({ projectId, order: scenes.length, description: "" });
   };
 
   return (
@@ -76,8 +71,8 @@ export function SceneStoryboard({
               sceneId={scene._id}
               title={scene.title}
               order={scene.order}
-              status={scene.status}
-              clipUrl={scene.clipUrl}
+              generationStatus={scene.generationStatus}
+              clipVideoUrl={scene.clipVideoUrl}
               isSelected={scene._id === selectedSceneId}
               onSelect={() => onSelectScene(scene._id)}
               onRegenerate={onRegenerateScene ? () => onRegenerateScene(scene._id) : undefined}

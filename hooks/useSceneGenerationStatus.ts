@@ -3,35 +3,32 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type SceneStatus = "draft" | "queued" | "generating" | "ready" | "failed";
+export type SceneGenerationStatus = "draft" | "queued" | "running" | "ready" | "failed";
 
-interface SceneGenerationStatus {
-  status: SceneStatus;
-  clipUrl?: string;
+interface SceneGenerationResult {
+  generationStatus: SceneGenerationStatus;
+  clipVideoUrl?: string;
   isActive: boolean;
 }
 
-/**
- * Derives the current generation status for a scene.
- * Polls automatically via Convex real-time subscriptions.
- */
 export function useSceneGenerationStatus(
   sceneId: Id<"scenes"> | undefined
-): SceneGenerationStatus {
+): SceneGenerationResult {
   const latestJob = useQuery(
     api.generationJobs.getLatestForScene,
     sceneId ? { sceneId } : "skip"
   );
 
   if (!sceneId || latestJob === undefined) {
-    return { status: "draft", isActive: false };
+    return { generationStatus: "draft", isActive: false };
   }
 
-  const isActive = latestJob?.status === "queued" || latestJob?.status === "generating";
+  const isActive =
+    latestJob?.status === "queued" || latestJob?.status === "running";
 
   return {
-    status: (latestJob?.status as SceneStatus) ?? "draft",
-    clipUrl: latestJob?.outputUrl,
+    generationStatus: (latestJob?.status as SceneGenerationStatus) ?? "draft",
+    clipVideoUrl: latestJob?.outputSnapshot?.url,
     isActive: isActive ?? false,
   };
 }

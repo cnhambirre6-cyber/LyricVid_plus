@@ -14,12 +14,16 @@ interface CharacterCardProps {
   name: string;
   description?: string;
   imageUrl?: string;
-  personaNotes?: string;
+  styleNotes?: string;
 }
 
-export function CharacterCard({ id, name, description, imageUrl, personaNotes }: CharacterCardProps) {
+export function CharacterCard({ id, name, description, imageUrl, styleNotes }: CharacterCardProps) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ name, description: description ?? "", personaNotes: personaNotes ?? "" });
+  const [draft, setDraft] = useState({
+    name,
+    description: description ?? "",
+    styleNotes: styleNotes ?? "",
+  });
 
   const updateChar = useMutation(api.characters.update);
   const removeChar = useMutation(api.characters.remove);
@@ -30,13 +34,12 @@ export function CharacterCard({ id, name, description, imageUrl, personaNotes }:
   };
 
   const cancel = () => {
-    setDraft({ name, description: description ?? "", personaNotes: personaNotes ?? "" });
+    setDraft({ name, description: description ?? "", styleNotes: styleNotes ?? "" });
     setEditing(false);
   };
 
   return (
     <div className="group relative flex flex-col gap-3 rounded-card bg-card-gradient border border-studio-border p-4 hover:border-studio-ring transition-all duration-200">
-      {/* Avatar */}
       <div className="flex items-start gap-3">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-studio bg-studio-elevated border border-studio-border">
           {imageUrl ? (
@@ -62,17 +65,36 @@ export function CharacterCard({ id, name, description, imageUrl, personaNotes }:
           )}
         </div>
 
-        {/* Actions */}
-        <div className={`flex gap-1 ${editing ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+        <div
+          className={`flex gap-1 ${editing ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
+        >
           {editing ? (
             <>
-              <Button variant="ghost" size="icon-sm" onClick={save} className="text-status-ready"><Check className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon-sm" onClick={cancel} className="text-ink-muted"><X className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon-sm" onClick={save} className="text-status-ready">
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" onClick={cancel} className="text-ink-muted">
+                <X className="h-4 w-4" />
+              </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" size="icon-sm" onClick={() => setEditing(true)} className="text-ink-muted hover:text-ink-primary"><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => removeChar({ id })} className="text-ink-muted hover:text-status-failed"><Trash2 className="h-3.5 w-3.5" /></Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setEditing(true)}
+                className="text-ink-muted hover:text-ink-primary"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => removeChar({ id })}
+                className="text-ink-muted hover:text-status-failed"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </>
           )}
         </div>
@@ -87,9 +109,9 @@ export function CharacterCard({ id, name, description, imageUrl, personaNotes }:
             className="min-h-[60px] text-xs"
           />
           <Textarea
-            value={draft.personaNotes}
-            onChange={(e) => setDraft((d) => ({ ...d, personaNotes: e.target.value }))}
-            placeholder="Style or persona notes (optional)…"
+            value={draft.styleNotes}
+            onChange={(e) => setDraft((d) => ({ ...d, styleNotes: e.target.value }))}
+            placeholder="Style or visual notes for AI generation (optional)…"
             className="min-h-[50px] text-xs"
           />
         </div>
