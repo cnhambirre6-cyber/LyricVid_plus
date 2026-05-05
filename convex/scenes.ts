@@ -1,6 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const generationStatus = v.union(
+  v.literal("draft"),
+  v.literal("queued"),
+  v.literal("running"),
+  v.literal("ready"),
+  v.literal("failed")
+);
+
 export const listByProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) =>
@@ -23,13 +31,13 @@ export const create = mutation({
     description: v.string(),
     title: v.optional(v.string()),
     assignedCharacterId: v.optional(v.id("characters")),
-    targetDurationSec: v.optional(v.number()),
+    targetDurationMs: v.optional(v.number()),
     mood: v.optional(v.string()),
-    style: v.optional(v.string()),
+    stylePreset: v.optional(v.string()),
     cinematicDirection: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
-    ctx.db.insert("scenes", { ...args, status: "draft" }),
+    ctx.db.insert("scenes", { ...args, generationStatus: "draft" }),
 });
 
 export const update = mutation({
@@ -38,33 +46,34 @@ export const update = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     assignedCharacterId: v.optional(v.id("characters")),
-    targetDurationSec: v.optional(v.number()),
+    targetDurationMs: v.optional(v.number()),
     mood: v.optional(v.string()),
-    style: v.optional(v.string()),
+    stylePreset: v.optional(v.string()),
     cinematicDirection: v.optional(v.string()),
     promptPreview: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...fields }) => ctx.db.patch(id, fields),
 });
 
-export const setStatus = mutation({
-  args: {
-    id: v.id("scenes"),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("queued"),
-      v.literal("generating"),
-      v.literal("ready"),
-      v.literal("failed")
-    ),
-  },
-  handler: async (ctx, { id, status }) => ctx.db.patch(id, { status }),
+export const setGenerationStatus = mutation({
+  args: { id: v.id("scenes"), status: generationStatus },
+  handler: async (ctx, { id, status }) =>
+    ctx.db.patch(id, { generationStatus: status }),
 });
 
 export const linkClip = mutation({
-  args: { id: v.id("scenes"), clipUrl: v.string() },
-  handler: async (ctx, { id, clipUrl }) =>
-    ctx.db.patch(id, { clipUrl, status: "ready" }),
+  args: {
+    id: v.id("scenes"),
+    clipVideoUrl: v.string(),
+    providerJobId: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, clipVideoUrl, providerJobId }) =>
+    ctx.db.patch(id, {
+      clipVideoUrl,
+      generationStatus: "ready",
+      lastGeneratedAt: Date.now(),
+      ...(providerJobId ? { providerJobId } : {}),
+    }),
 });
 
 export const reorder = mutation({

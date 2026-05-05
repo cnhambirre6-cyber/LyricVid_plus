@@ -15,10 +15,12 @@ export const create = mutation({
     projectId: v.id("projects"),
     name: v.string(),
     description: v.optional(v.string()),
-    personaNotes: v.optional(v.string()),
+    styleNotes: v.optional(v.string()),
   },
-  handler: async (ctx, args) =>
-    ctx.db.insert("characters", { ...args, createdAt: Date.now() }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    return ctx.db.insert("characters", { ...args, createdAt: now, updatedAt: now });
+  },
 });
 
 export const update = mutation({
@@ -26,11 +28,12 @@ export const update = mutation({
     id: v.id("characters"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
-    personaNotes: v.optional(v.string()),
+    styleNotes: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
   },
-  handler: async (ctx, { id, ...fields }) => ctx.db.patch(id, fields),
+  handler: async (ctx, { id, ...fields }) =>
+    ctx.db.patch(id, { ...fields, updatedAt: Date.now() }),
 });
 
 export const remove = mutation({

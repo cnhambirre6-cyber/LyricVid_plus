@@ -29,25 +29,35 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    return ctx.db.insert("projects", {
+    const projectId = await ctx.db.insert("projects", {
       ...args,
       status: "draft",
       createdAt: now,
       updatedAt: now,
     });
+    // Create the type-specific satellite record immediately
+    if (args.type === "lyricVideo") {
+      await ctx.db.insert("lyricVideoProjects", {
+        projectId,
+        generationStatus: "draft",
+      });
+    } else {
+      await ctx.db.insert("sceneProjects", {
+        projectId,
+        stitchStatus: "pending",
+      });
+    }
+    return projectId;
   },
 });
 
+// Only updates fields that live on the shared projects record
 export const updateBasics = mutation({
   args: {
     id: v.id("projects"),
     title: v.optional(v.string()),
     mood: v.optional(v.string()),
     stylePreset: v.optional(v.string()),
-    summary: v.optional(v.string()),
-    rawLyrics: v.optional(v.string()),
-    lyricStylePreset: v.optional(v.string()),
-    backgroundPrompt: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...fields }) => {
     await ctx.db.patch(id, { ...fields, updatedAt: Date.now() });
@@ -75,9 +85,7 @@ export const removeAudio = mutation({
   args: { id: v.id("projects") },
   handler: async (ctx, { id }) => {
     const project = await ctx.db.get(id);
-    if (project?.audioStorageId) {
-      await ctx.storage.delete(project.audioStorageId);
-    }
+    if (project?.audioStorageId) await ctx.storage.delete(project.audioStorageId);
     await ctx.db.patch(id, {
       audioStorageId: undefined,
       audioFileName: undefined,
@@ -103,39 +111,37 @@ export const setStatus = mutation({
   },
 });
 
-export const linkGeneratedVideo = mutation({
-  args: {
-    id: v.id("projects"),
-    videoUrl: v.string(),
-  },
-  handler: async (ctx, { id, videoUrl }) => {
-    await ctx.db.patch(id, {
-      generatedVideoUrl: videoUrl,
-      status: "ready",
-      updatedAt: Date.now(),
-    });
-  },
-});
-
-export const linkFinalVideo = mutation({
-  args: { id: v.id("projects"), videoUrl: v.string() },
-  handler: async (ctx, { id, videoUrl }) => {
-    await ctx.db.patch(id, {
-      finalVideoUrl: videoUrl,
-      stitchStatus: "done",
-      updatedAt: Date.now(),
-    });
-  },
-});
-
 export const remove = mutation({
   args: { id: v.id("projects") },
   handler: async (ctx, { id }) => {
     const project = await ctx.db.get(id);
-    if (project?.audioStorageId) await ctx.storage.delete(project.audioStorageId);
-    if (project?.generatedVideoStorageId)
-      await ctx.storage.delete(project.generatedVideoStorageId);
-    if (project?.finalVideoStorageId) await ctx.storage.delete(project.finalVideoStorageId);
+    if (!project) return;
+
+    if (project.audioStorageId) await ctx.storage.delete(project.audioStorageId);
+
+    // Satellite: lyricVideoProject
+    const lyricProject = await ctx.db
+      .query("lyricVideoProjects")
+      .withIndex("by_project", (q) => q.eq("projectId", id))
+      .first();
+    if (lyricProject) {
+      if (lyricProject.generatedVideoStorageId) {
+        await ctx.storage.delete(lyricProject.generatedVideoStorageId);
+      }
+      await ctx.db.delete(lyricProject._id);
+    }
+
+    // Satellite: sceneProject
+    const sceneProject = await ctx.db
+      .query("sceneProjects")
+      .withIndex("by_project", (q) => q.eq("projectId", id))
+      .first();
+    if (sceneProject) {
+      if (sceneProject.finalVideoStorageId) {
+        await ctx.storage.delete(sceneProject.finalVideoStorageId);
+      }
+      await ctx.db.delete(sceneProject._id);
+    }
 
     const lyricLines = await ctx.db
       .query("lyricTimingLines")
