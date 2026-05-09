@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ───────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --studio-bg:       #080810;
+  --studio-surface:  #0f0f1c;
+  --studio-elevated: #171728;
+  --studio-float:    #1e1e32;
+  --studio-border:   #1e1e30;
+  --studio-ring:     #2a2a45;
+
+  /* Ink */
+  --ink-primary:   #eeeef8;
+  --ink-secondary: #8080a8;
+  --ink-muted:     #44445a;
+  --ink-accent:    #a78bfa;
+
+  /* Accent — violet spectrum */
+  --accent:       #7c3aed;
+  --accent-soft:  #6d28d9;
+  --accent-glow:  #8b5cf6;
+  --accent-muted: rgba(124, 58, 237, 0.18);
+}
+
+/* ─── Base ────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  border-color: var(--studio-border);
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--studio-bg);
+  color: var(--ink-primary);
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: var(--studio-ring); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--accent-soft); }
+
+/* ─── Selection ───────────────────────────────────────────────── */
+::selection {
+  background: rgba(124, 58, 237, 0.3);
+  color: var(--ink-primary);
+}
+
+/* ─── Focus ring ──────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-glow);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Utility classes ─────────────────────────────────────────── */
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .surface {
+    background-color: var(--studio-surface);
+    border: 1px solid var(--studio-border);
+    border-radius: 14px;
+  }
+
+  .surface-elevated {
+    background-color: var(--studio-elevated);
+    border: 1px solid var(--studio-border);
+    border-radius: 14px;
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+
+  .panel {
+    background: linear-gradient(145deg, var(--studio-elevated) 0%, var(--studio-surface) 100%);
+    border: 1px solid var(--studio-border);
+    border-radius: 14px;
+  }
+
+  .input-base {
+    background-color: var(--studio-elevated);
+    border: 1px solid var(--studio-border);
+    border-radius: 8px;
+    color: var(--ink-primary);
+    padding: 0.5rem 0.75rem;
+    width: 100%;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .input-base::placeholder {
+    color: var(--ink-muted);
+  }
+
+  .input-base:focus {
+    outline: none;
+    border-color: var(--accent-glow);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+  }
+}
+
+/* ─── Animation helpers ───────────────────────────────────────── */
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.25s ease-out, slideUp 0.3s ease-out;
+  }
+}
