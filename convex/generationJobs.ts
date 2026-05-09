@@ -78,15 +78,17 @@ export const markSceneGenerationStarted = mutation({
     jobId: v.id("generationJobs"),
     sceneId: v.id("scenes"),
     providerJobId: v.optional(v.string()),
+    inputSnapshot: v.optional(v.any()),
   },
-  handler: async (ctx, { jobId, sceneId, providerJobId }) => {
+  handler: async (ctx, { jobId, sceneId, providerJobId, inputSnapshot }) => {
     const now = Date.now();
     await ctx.db.patch(jobId, {
       status: "running",
       updatedAt: now,
       ...(providerJobId ? { providerJobId } : {}),
+      ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
     });
-    await ctx.db.patch(sceneId, { generationStatus: "running" });
+    await ctx.db.patch(sceneId, { generationStatus: "generating", errorMessage: undefined });
   },
 });
 
@@ -121,7 +123,7 @@ export const markSceneGenerationFailed = mutation({
   handler: async (ctx, { jobId, sceneId, errorMessage }) => {
     const now = Date.now();
     await ctx.db.patch(jobId, { status: "failed", errorMessage, updatedAt: now });
-    await ctx.db.patch(sceneId, { generationStatus: "failed" });
+    await ctx.db.patch(sceneId, { generationStatus: "failed", errorMessage });
   },
 });
 

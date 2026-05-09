@@ -80,11 +80,29 @@ export const getSceneProjectWorkspace = query({
       .order("desc")
       .take(10);
 
+    // Annotate each scene with image-to-video eligibility derived from character data.
+    // Computed here so the frontend never has to join character → scene.
+    const charImageMap = new Map(
+      characters
+        .filter((c) => c.imageUrl)
+        .map((c) => [c._id.toString(), c.imageUrl as string])
+    );
+    const scenesAnnotated = scenes.map((scene) => ({
+      ...scene,
+      isImageToVideoEligible: !!(
+        scene.assignedCharacterId &&
+        charImageMap.has(scene.assignedCharacterId.toString())
+      ),
+      characterImageUrl: scene.assignedCharacterId
+        ? (charImageMap.get(scene.assignedCharacterId.toString()) ?? null)
+        : null,
+    }));
+
     return {
       project,
       sceneProject,
       characters,
-      scenes,
+      scenes: scenesAnnotated,
       audioStorageUrl,
       recentJobs,
     };

@@ -4,7 +4,7 @@ import { mutation, query } from "./_generated/server";
 const generationStatus = v.union(
   v.literal("draft"),
   v.literal("queued"),
-  v.literal("running"),
+  v.literal("generating"),
   v.literal("ready"),
   v.literal("failed")
 );
@@ -68,9 +68,16 @@ export const assignCharacter = mutation({
 });
 
 export const setGenerationStatus = mutation({
-  args: { id: v.id("scenes"), status: generationStatus },
-  handler: async (ctx, { id, status }) =>
-    ctx.db.patch(id, { generationStatus: status }),
+  args: {
+    id: v.id("scenes"),
+    status: generationStatus,
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, status, errorMessage }) =>
+    ctx.db.patch(id, {
+      generationStatus: status,
+      ...(errorMessage !== undefined ? { errorMessage } : {}),
+    }),
 });
 
 export const linkClip = mutation({
@@ -84,6 +91,7 @@ export const linkClip = mutation({
       clipVideoUrl,
       generationStatus: "ready",
       lastGeneratedAt: Date.now(),
+      errorMessage: undefined,
       ...(providerJobId ? { providerJobId } : {}),
     }),
 });
@@ -103,5 +111,63 @@ export const remove = mutation({
     const scene = await ctx.db.get(id);
     if (scene?.clipStorageId) await ctx.storage.delete(scene.clipStorageId);
     await ctx.db.delete(id);
+  },
+});
+
+// ── Server-side prompt preparation ─────────────────────────────────────────
+// Builds the Replicate-ready prompt from scene + character data, persists
+// promptPreview for the storyboard UI, and returns routing context for the action.
+// Convex backend cannot import from app/lib/ so the prompt logic is inlined here.
+
+export const preparePrompt = mutation({
+  args: { id: v.id("scenes") },
+  handler: async (ctx, { id }) => {
+    const scene = await ctx.db.get(id);
+    if (!scene) throw new Error("Scene not found");
+
+    const character = scene.assignedCharacterId
+      ? await ctx.db.get(scene.assignedCharacterId)
+      : null;
+
+    const parts: string[] = [];
+    if (character?.name && character?.description) {
+      parts.push(`${character.name}, ${character.description}`);
+    } else if (character?.name) {
+      parts.push(character.name);
+    }
+    parts.push(scene.description);
+    if (scene.mood) parts.push(`${scene.mood} mood`);
+    if (scene.stylePreset) parts.push(scene.stylePreset);
+    if (scene.cinematicDirection) parts.push(scene.cinematicDirection);
+    parts.push("cinematic, high quality, music video aesthetic, 4K");
+
+    const prompt = parts.filter(Boolean).join(", ");
+    await ctx.db.patch(id, { promptPreview: prompt });
+
+    return {
+      prompt,
+      characterImageUrl: character?.imageUrl ?? null,
+      durationMs: scene.targetDurationMs ?? null,
+      isImageToVideo: !!(character?.imageUrl),
+    };
+  },
+});
+
+// Resets a scene so it can be re-queued for generation.
+export const resetForRegenerate = mutation({
+  args: { id: v.id("scenes") },
+  handler: async (ctx, { id }) => {
+    const scene = await ctx.db.get(id);
+    if (!scene) return;
+    if (scene.clipStorageId) await ctx.storage.delete(scene.clipStorageId);
+    await ctx.db.patch(id, {
+      generationStatus: "queued",
+      clipVideoUrl: undefined,
+      clipStorageId: undefined,
+      clipThumbnailUrl: undefined,
+      providerJobId: undefined,
+      errorMessage: undefined,
+      lastGeneratedAt: undefined,
+    });
   },
 });

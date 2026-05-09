@@ -13,7 +13,6 @@ import { SceneEditorPanel } from "@/components/scene/SceneEditorPanel";
 import { GenerationStatusBadge } from "@/components/shared/GenerationStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { buildScenePrompt } from "@/lib/buildScenePrompt";
 import { Scissors, Download, Music2, Layers } from "lucide-react";
 
 export default function SceneProjectWorkspace() {
@@ -25,9 +24,12 @@ export default function SceneProjectWorkspace() {
 
   const createJob = useMutation(api.generationJobs.create);
   const generateClip = useAction(api.generation.generateSceneClip);
+  const startStitch = useMutation(api.sceneAssembly.startFinalStitch);
+  const assembleVideo = useAction(api.sceneAssembly.assembleFinalVideo);
 
   const [selectedSceneId, setSelectedSceneId] = useState<Id<"scenes"> | null>(null);
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
+  const [stitching, setStitching] = useState(false);
 
   const project = workspace?.project ?? null;
   const sceneProject = workspace?.sceneProject ?? null;
@@ -40,39 +42,16 @@ export default function SceneProjectWorkspace() {
   const selectedScene = scenes.find((s: any) => s._id === selectedSceneId) ?? null;
 
   const handleGenerateClip = async (sceneId: Id<"scenes">) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const scene = scenes.find((s: any) => s._id === sceneId);
-    if (!scene) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const assignedChar = characters.find((c: any) => c._id === scene.assignedCharacterId);
-
-    const prompt = buildScenePrompt({
-      description: scene.description,
-      mood: scene.mood,
-      stylePreset: scene.stylePreset,
-      cinematicDirection: scene.cinematicDirection,
-      characterName: assignedChar?.name,
-      characterDescription: assignedChar?.description,
-    });
-
     setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
-
     try {
       const jobId = await createJob({
         projectId,
         sceneId,
         type: "sceneClip",
         provider: "replicate",
-        inputSnapshot: { prompt, sceneId },
       });
-      await generateClip({
-        jobId,
-        sceneId,
-        projectId,
-        prompt,
-        characterImageUrl: assignedChar?.imageUrl,
-        durationMs: scene.targetDurationMs,
-      });
+      // Prompt is computed server-side inside generateSceneClip via scenes.preparePrompt
+      await generateClip({ jobId, sceneId, projectId });
     } finally {
       setGeneratingSceneIds((prev) => {
         const next = new Set(prev);
@@ -87,6 +66,16 @@ export default function SceneProjectWorkspace() {
       if (scene.generationStatus !== "ready") {
         await handleGenerateClip(scene._id);
       }
+    }
+  };
+
+  const handleStitch = async () => {
+    setStitching(true);
+    try {
+      const { jobId } = await startStitch({ projectId });
+      await assembleVideo({ jobId, projectId });
+    } finally {
+      setStitching(false);
     }
   };
 
@@ -221,11 +210,12 @@ export default function SceneProjectWorkspace() {
             <Button
               variant="primary"
               size="lg"
-              disabled={!project.audioFileName}
+              disabled={!project.audioFileName || stitching}
               title={!project.audioFileName ? "Upload an audio track first" : ""}
+              onClick={handleStitch}
             >
               <Scissors className="h-4 w-4" />
-              Stitch final video
+              {stitching ? "Stitching…" : "Stitch final video"}
             </Button>
           </div>
         )}

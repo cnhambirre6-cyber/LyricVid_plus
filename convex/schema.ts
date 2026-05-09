@@ -5,7 +5,7 @@ import { v } from "convex/values";
 const generationStatus = v.union(
   v.literal("draft"),
   v.literal("queued"),
-  v.literal("running"),
+  v.literal("generating"),
   v.literal("ready"),
   v.literal("failed")
 );
@@ -122,6 +122,7 @@ export default defineSchema({
     clipVideoUrl: v.optional(v.string()),
     clipThumbnailUrl: v.optional(v.string()),
     providerJobId: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
     lastGeneratedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])

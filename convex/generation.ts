@@ -62,20 +62,30 @@ export const generateSceneClip = action({
     jobId: v.id("generationJobs"),
     sceneId: v.id("scenes"),
     projectId: v.id("projects"),
-    prompt: v.string(),
-    characterImageUrl: v.optional(v.string()),
-    durationMs: v.optional(v.number()),
   },
-  handler: async (ctx, { jobId, sceneId, projectId, prompt, characterImageUrl, durationMs }) => {
-    await ctx.runMutation(api.generationJobs.markSceneGenerationStarted, { jobId, sceneId });
+  handler: async (ctx, { jobId, sceneId, projectId }) => {
+    // Compute prompt server-side and persist promptPreview before generation starts
+    const context = await ctx.runMutation(api.scenes.preparePrompt, { id: sceneId });
+
+    await ctx.runMutation(api.generationJobs.markSceneGenerationStarted, {
+      jobId,
+      sceneId,
+      inputSnapshot: {
+        prompt: context.prompt,
+        isImageToVideo: context.isImageToVideo,
+        durationMs: context.durationMs,
+      },
+    });
 
     try {
-      const durationSec = durationMs ? Math.max(1, Math.round(durationMs / 1000)) : 5;
+      const durationSec = context.durationMs
+        ? Math.max(1, Math.round(context.durationMs / 1000))
+        : 5;
       let outputUrl: string;
 
-      if (characterImageUrl) {
+      if (context.characterImageUrl) {
         const prediction = await createPrediction(REPLICATE_MODELS.imageToVideo, {
-          input_image: characterImageUrl,
+          input_image: context.characterImageUrl,
           motion_bucket_id: 127,
           fps: 24,
           num_frames: durationSec * 24,
@@ -83,7 +93,7 @@ export const generateSceneClip = action({
         outputUrl = await pollUntilDone(prediction.id);
       } else {
         const prediction = await createPrediction(REPLICATE_MODELS.textToVideo, {
-          prompt,
+          prompt: context.prompt,
           num_frames: durationSec * 8,
           guidance_scale: 7,
         });
@@ -94,6 +104,7 @@ export const generateSceneClip = action({
         jobId,
         sceneId,
         clipVideoUrl: outputUrl,
+        outputSnapshot: { url: outputUrl, isImageToVideo: context.isImageToVideo },
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
