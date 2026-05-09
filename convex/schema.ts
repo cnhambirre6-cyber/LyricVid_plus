@@ -49,7 +49,9 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_type", ["type"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    // Supports list-by-type queries sorted by recency
+    .index("by_type_createdAt", ["type", "createdAt"]),
 
   // ── Lyric video satellite (1:1 with projects where type = "lyricVideo") ───
   lyricVideoProjects: defineTable({

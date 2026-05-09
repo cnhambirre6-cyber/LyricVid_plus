@@ -197,3 +197,74 @@ export const markFinalStitchFailed = mutation({
     }
   },
 });
+
+// ── Lyric background helpers ───────────────────────────────────────────────
+// Mirrors the scene-clip mark* pattern for the lyric background generation
+// flow so all status transitions are atomic across job + lyricVideoProject + project.
+
+export const markLyricBackgroundStarted = mutation({
+  args: {
+    jobId: v.id("generationJobs"),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { jobId, projectId }) => {
+    const now = Date.now();
+    await ctx.db.patch(jobId, { status: "running", updatedAt: now });
+    const lp = await ctx.db
+      .query("lyricVideoProjects")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .first();
+    if (lp) await ctx.db.patch(lp._id, { generationStatus: "generating" });
+    await ctx.db.patch(projectId, { status: "generating", updatedAt: now });
+  },
+});
+
+export const markLyricBackgroundCompleted = mutation({
+  args: {
+    jobId: v.id("generationJobs"),
+    projectId: v.id("projects"),
+    imageUrl: v.string(),
+    outputSnapshot: v.optional(v.any()),
+  },
+  handler: async (ctx, { jobId, projectId, imageUrl, outputSnapshot }) => {
+    const now = Date.now();
+    await ctx.db.patch(jobId, {
+      status: "ready",
+      outputSnapshot: outputSnapshot ?? { url: imageUrl },
+      updatedAt: now,
+    });
+    const lp = await ctx.db
+      .query("lyricVideoProjects")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .first();
+    if (lp) {
+      await ctx.db.patch(lp._id, {
+        generationStatus: "ready",
+        generatedVideoUrl: imageUrl,
+      });
+    }
+    await ctx.db.patch(projectId, {
+      status: "ready",
+      coverImageUrl: imageUrl,
+      updatedAt: now,
+    });
+  },
+});
+
+export const markLyricBackgroundFailed = mutation({
+  args: {
+    jobId: v.id("generationJobs"),
+    projectId: v.id("projects"),
+    errorMessage: v.string(),
+  },
+  handler: async (ctx, { jobId, projectId, errorMessage }) => {
+    const now = Date.now();
+    await ctx.db.patch(jobId, { status: "failed", errorMessage, updatedAt: now });
+    const lp = await ctx.db
+      .query("lyricVideoProjects")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .first();
+    if (lp) await ctx.db.patch(lp._id, { generationStatus: "failed" });
+    await ctx.db.patch(projectId, { status: "failed", updatedAt: now });
+  },
+});

@@ -1,14 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
-
-const generationStatus = v.union(
-  v.literal("draft"),
-  v.literal("queued"),
-  v.literal("running"),
-  v.literal("ready"),
-  v.literal("failed")
-);
 
 export const get = query({
   args: { projectId: v.id("projects") },
@@ -32,17 +23,6 @@ export const updateContent = mutation({
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .first();
     if (existing) await ctx.db.patch(existing._id, fields);
-  },
-});
-
-export const setGenerationStatus = mutation({
-  args: { projectId: v.id("projects"), status: generationStatus },
-  handler: async (ctx, { projectId, status }) => {
-    const existing = await ctx.db
-      .query("lyricVideoProjects")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
-      .first();
-    if (existing) await ctx.db.patch(existing._id, { generationStatus: status });
   },
 });
 

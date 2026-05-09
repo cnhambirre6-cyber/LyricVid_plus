@@ -127,8 +127,7 @@ export const generateBackgroundImage = action({
     mood: v.optional(v.string()),
   },
   handler: async (ctx, { jobId, projectId, prompt, mood }) => {
-    await ctx.runMutation(api.generationJobs.updateStatus, { id: jobId, status: "running" });
-    await ctx.runMutation(api.projects.setStatus, { id: projectId, status: "generating" });
+    await ctx.runMutation(api.generationJobs.markLyricBackgroundStarted, { jobId, projectId });
 
     try {
       const fullPrompt = [
@@ -149,23 +148,19 @@ export const generateBackgroundImage = action({
       });
       const imageUrl = await pollUntilDone(prediction.id);
 
-      await ctx.runMutation(api.lyricVideoProjects.linkGeneratedVideo, {
+      await ctx.runMutation(api.generationJobs.markLyricBackgroundCompleted, {
+        jobId,
         projectId,
-        videoUrl: imageUrl,
-      });
-      await ctx.runMutation(api.generationJobs.updateStatus, {
-        id: jobId,
-        status: "ready",
+        imageUrl,
         outputSnapshot: { url: imageUrl },
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      await ctx.runMutation(api.generationJobs.updateStatus, {
-        id: jobId,
-        status: "failed",
+      await ctx.runMutation(api.generationJobs.markLyricBackgroundFailed, {
+        jobId,
+        projectId,
         errorMessage,
       });
-      await ctx.runMutation(api.projects.setStatus, { id: projectId, status: "failed" });
     }
   },
 });

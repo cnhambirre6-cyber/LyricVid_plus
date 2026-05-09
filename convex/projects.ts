@@ -40,8 +40,11 @@ export const listRecent = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { type, limit = 20 }) => {
+    // by_type_createdAt lets us filter by type and sort by createdAt in one index scan
     const q = type
-      ? ctx.db.query("projects").withIndex("by_type", (q) => q.eq("type", type))
+      ? ctx.db
+          .query("projects")
+          .withIndex("by_type_createdAt", (q) => q.eq("type", type))
       : ctx.db.query("projects").withIndex("by_createdAt");
     return q.order("desc").take(limit);
   },
@@ -116,14 +119,15 @@ export const linkAudio = mutation({
       await ctx.storage.delete(project.audioStorageId);
     }
 
+    const now = Date.now();
     await ctx.db.patch(id, {
       audioStorageId: storageId,
       audioFileName: fileName,
       audioMimeType: mimeType,
       audioFileSize: fileSize,
       audioDurationMs: durationMs,
-      audioUploadedAt: Date.now(),
-      updatedAt: Date.now(),
+      audioUploadedAt: now,
+      updatedAt: now,
     });
   },
 });
