@@ -14,12 +14,12 @@ import { GenerationStatusBadge } from "@/components/shared/GenerationStatusBadge
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Scissors, Download, Music2, Layers } from "lucide-react";
+import type { SceneRef } from "@/lib/workspaceTypes";
 
 export default function SceneProjectWorkspace() {
   const params = useParams();
   const projectId = params.id as Id<"projects">;
 
-  // Single workspace query replaces 4 separate subscriptions
   const workspace = useQuery(api.workspace.getSceneProjectWorkspace, { projectId });
 
   const createJob = useMutation(api.generationJobs.create);
@@ -31,15 +31,9 @@ export default function SceneProjectWorkspace() {
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
   const [stitching, setStitching] = useState(false);
 
-  const project = workspace?.project ?? null;
-  const sceneProject = workspace?.sceneProject ?? null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const characters = (workspace?.characters ?? []) as any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scenes = (workspace?.scenes ?? []) as any[];
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const selectedScene = scenes.find((s: any) => s._id === selectedSceneId) ?? null;
+  const scenes = workspace?.scenes ?? [];
+  const characters = workspace?.characters ?? [];
+  const selectedScene = scenes.find((s: SceneRef) => s._id === selectedSceneId) ?? null;
 
   const handleGenerateClip = async (sceneId: Id<"scenes">) => {
     setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
@@ -94,11 +88,10 @@ export default function SceneProjectWorkspace() {
     );
   }
 
-  if (!project) return null;
+  if (!workspace) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const readyCount = scenes.filter((s: any) => s.generationStatus === "ready").length;
-  const allReady = readyCount === scenes.length && scenes.length > 0;
+  const { project, audio } = workspace;
+  const allScenesReady = scenes.length > 0 && workspace.readySceneCount === scenes.length;
 
   return (
     <div className="min-h-screen bg-studio-bg">
@@ -107,9 +100,9 @@ export default function SceneProjectWorkspace() {
         actions={
           <div className="flex items-center gap-3">
             <GenerationStatusBadge status={project.status} />
-            {sceneProject?.finalVideoUrl && (
+            {workspace.hasFinalVideo && (
               <Button variant="secondary" size="sm" asChild>
-                <a href={sceneProject.finalVideoUrl} download target="_blank" rel="noreferrer">
+                <a href={workspace.finalVideoUrl} download target="_blank" rel="noreferrer">
                   <Download className="h-4 w-4" />
                   Download final
                 </a>
@@ -127,12 +120,12 @@ export default function SceneProjectWorkspace() {
               <Music2 className="h-4 w-4 text-ink-muted" />
               <span className="text-sm font-medium text-ink-primary">Master audio track</span>
             </div>
-            {project.audioFileName ? (
+            {audio ? (
               <AudioFileCard
                 projectId={projectId}
-                fileName={project.audioFileName}
-                durationMs={project.audioDurationMs}
-                fileSize={project.audioFileSize}
+                fileName={audio.fileName}
+                durationMs={audio.durationMs}
+                fileSize={audio.fileSize}
               />
             ) : (
               <AudioUploader projectId={projectId} />
@@ -146,7 +139,7 @@ export default function SceneProjectWorkspace() {
             </div>
             <div className="space-y-1 mt-3">
               <p className="text-xs text-ink-secondary">{scenes.length} scenes total</p>
-              <p className="text-xs text-ink-secondary">{readyCount} clips ready</p>
+              <p className="text-xs text-ink-secondary">{workspace.readySceneCount} clips ready</p>
               <p className="text-xs text-ink-secondary">{characters.length} characters</p>
             </div>
             <div className="mt-4 flex gap-2">
@@ -199,7 +192,7 @@ export default function SceneProjectWorkspace() {
         </div>
 
         {/* Final assembly */}
-        {allReady && (
+        {allScenesReady && (
           <div className="surface p-5 flex items-center justify-between animate-in">
             <div>
               <p className="text-sm font-semibold text-ink-primary">All clips are ready</p>
@@ -210,8 +203,8 @@ export default function SceneProjectWorkspace() {
             <Button
               variant="primary"
               size="lg"
-              disabled={!project.audioFileName || stitching}
-              title={!project.audioFileName ? "Upload an audio track first" : ""}
+              disabled={!workspace.canStartStitch || stitching}
+              title={!workspace.hasAudio ? "Upload an audio track first" : ""}
               onClick={handleStitch}
             >
               <Scissors className="h-4 w-4" />
@@ -220,11 +213,11 @@ export default function SceneProjectWorkspace() {
           </div>
         )}
 
-        {sceneProject?.finalVideoUrl && (
+        {workspace.hasFinalVideo && (
           <div className="surface p-5">
             <p className="text-sm font-semibold text-ink-primary mb-3">Final video</p>
             <video
-              src={sceneProject.finalVideoUrl}
+              src={workspace.finalVideoUrl}
               controls
               className="w-full rounded-studio aspect-video bg-studio-bg"
             />

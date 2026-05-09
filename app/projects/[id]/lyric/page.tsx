@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDebouncedProjectSave } from "@/hooks/useDebouncedProjectSave";
 import type { LyricLine } from "@/components/lyric/LyricLineRow";
 import { type ParsedLine } from "@/lib/parseLyrics";
+import type { LyricLineRef } from "@/lib/workspaceTypes";
 import { Sparkles, Download, Music2 } from "lucide-react";
 
 function toLocalLines(parsed: ParsedLine[]): LyricLine[] {
@@ -31,7 +32,6 @@ export default function LyricVideoWorkspace() {
   const params = useParams();
   const projectId = params.id as Id<"projects">;
 
-  // Single workspace query replaces 4 separate subscriptions
   const workspace = useQuery(api.workspace.getLyricVideoWorkspace, { projectId });
 
   const replaceAll = useMutation(api.lyricLines.replaceAll);
@@ -59,24 +59,23 @@ export default function LyricVideoWorkspace() {
   const [currentMs, setCurrentMs] = useState(0);
   const [generating, setGenerating] = useState(false);
 
-  const project = workspace?.project;
-  const lyricProject = workspace?.lyricProject;
-
+  // Initialise title once the project loads
   useEffect(() => {
-    if (!project) return;
-    setTitle(project.title);
-  }, [project?._id]);
+    if (!workspace) return;
+    setTitle(workspace.project.title);
+  }, [workspace?.project._id]);
 
+  // Initialise rawLyrics once the lyric project loads
   useEffect(() => {
-    if (!lyricProject) return;
-    setRawLyrics(lyricProject.rawLyrics ?? "");
-  }, [lyricProject?.projectId]);
+    if (!workspace) return;
+    setRawLyrics(workspace.rawLyrics);
+  }, [workspace?.project._id]);
 
-  // Sync timing lines from workspace
+  // Sync timing lines from workspace (real-time)
   useEffect(() => {
-    if (!workspace?.lyricLines) return;
+    if (!workspace?.lines) return;
     setLocalLines(
-      workspace.lyricLines.map((l: typeof workspace.lyricLines[number]) => ({
+      workspace.lines.map((l: LyricLineRef) => ({
         id: l._id,
         order: l.order,
         text: l.text,
@@ -86,7 +85,7 @@ export default function LyricVideoWorkspace() {
         animationPreset: l.animationPreset,
       }))
     );
-  }, [workspace?.lyricLines]);
+  }, [workspace?.lines]);
 
   const handleImportLines = useCallback(
     (parsed: ParsedLine[]) => {
@@ -111,7 +110,7 @@ export default function LyricVideoWorkspace() {
   };
 
   const handleGenerate = async () => {
-    if (!project) return;
+    if (!workspace) return;
     setGenerating(true);
     try {
       const jobId = await createJob({ projectId, type: "lyricBackground", provider: "replicate" });
@@ -119,9 +118,9 @@ export default function LyricVideoWorkspace() {
         jobId,
         projectId,
         prompt:
-          lyricProject?.backgroundPrompt ??
-          `${project.mood ?? "cinematic"} music video background`,
-        mood: project.mood,
+          workspace.backgroundPrompt ??
+          `${workspace.project.mood ?? "cinematic"} music video background`,
+        mood: workspace.project.mood,
       });
     } finally {
       setGenerating(false);
@@ -144,7 +143,9 @@ export default function LyricVideoWorkspace() {
     );
   }
 
-  if (!project) return null;
+  if (!workspace) return null;
+
+  const { project, audio } = workspace;
 
   return (
     <div className="min-h-screen bg-studio-bg">
@@ -152,10 +153,10 @@ export default function LyricVideoWorkspace() {
         title={project.title}
         actions={
           <div className="flex items-center gap-2">
-            <GenerationStatusBadge status={lyricProject?.generationStatus ?? project.status} />
-            {lyricProject?.generatedVideoUrl && (
+            <GenerationStatusBadge status={workspace.generationStatus} />
+            {workspace.generatedVideoUrl && (
               <Button variant="secondary" size="sm" asChild>
-                <a href={lyricProject.generatedVideoUrl} download target="_blank" rel="noreferrer">
+                <a href={workspace.generatedVideoUrl} download target="_blank" rel="noreferrer">
                   <Download className="h-4 w-4" />
                   Export
                 </a>
@@ -180,12 +181,12 @@ export default function LyricVideoWorkspace() {
               <Music2 className="h-4 w-4 text-ink-muted" />
               <span className="text-sm font-medium text-ink-primary">Audio track</span>
             </div>
-            {project.audioFileName ? (
+            {audio ? (
               <AudioFileCard
                 projectId={projectId}
-                fileName={project.audioFileName}
-                durationMs={project.audioDurationMs}
-                fileSize={project.audioFileSize}
+                fileName={audio.fileName}
+                durationMs={audio.durationMs}
+                fileSize={audio.fileSize}
               />
             ) : (
               <AudioUploader projectId={projectId} onUploaded={() => {}} />
@@ -234,14 +235,14 @@ export default function LyricVideoWorkspace() {
                     <label className="text-xs font-medium text-ink-secondary">Lyric display style</label>
                     <StylePresetPicker
                       mode="lyric"
-                      value={lyricProject?.lyricStylePreset}
+                      value={workspace.lyricStylePreset}
                       onChange={(v) => updateLyricContent({ projectId, lyricStylePreset: v })}
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium text-ink-secondary">Background prompt</label>
                     <Textarea
-                      value={lyricProject?.backgroundPrompt ?? ""}
+                      value={workspace.backgroundPrompt ?? ""}
                       onChange={(e) => debouncedLyricSave({ backgroundPrompt: e.target.value })}
                       placeholder="Describe the visual background… e.g. 'rain-soaked city at midnight, neon reflections'"
                     />
@@ -259,14 +260,14 @@ export default function LyricVideoWorkspace() {
         {/* Right — preview player */}
         <div className="flex flex-col gap-4">
           <LyricPreviewPlayer
-            audioUrl={workspace.audioStorageUrl ?? undefined}
-            videoUrl={lyricProject?.generatedVideoUrl}
+            audioUrl={audio?.storageUrl}
+            videoUrl={workspace.generatedVideoUrl}
             lines={localLines}
-            lyricStyle={lyricProject?.lyricStylePreset}
+            lyricStyle={workspace.lyricStylePreset}
             onTimeUpdate={setCurrentMs}
           />
           <p className="text-xs text-ink-muted text-center">
-            {workspace.audioStorageUrl
+            {workspace.hasAudio
               ? "Audio is the master sync source. Video is muted."
               : "Upload an audio track to enable playback and lyric sync."}
           </p>
