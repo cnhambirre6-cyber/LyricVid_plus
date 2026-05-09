@@ -1,14 +1,15 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Strips internal storage IDs and normalises an audio-capable project record
- *  into a serialisable AudioRef, or null when no audio has been uploaded. */
+/** Resolves audio fields from a project record into a serialisable AudioRef,
+ *  or null when no audio has been uploaded. Storage IDs are never exposed. */
 async function resolveAudio(
-  ctx: { storage: { getUrl: (id: string) => Promise<string | null> } },
+  ctx: Pick<QueryCtx, "storage">,
   project: {
-    audioStorageId?: string;
+    audioStorageId?: Id<"_storage">;
     audioFileName?: string;
     audioDurationMs?: number;
     audioFileSize?: number;
@@ -16,7 +17,7 @@ async function resolveAudio(
   }
 ) {
   if (!project.audioStorageId || !project.audioFileName) return null;
-  const storageUrl = await ctx.storage.getUrl(project.audioStorageId as never);
+  const storageUrl = await ctx.storage.getUrl(project.audioStorageId);
   if (!storageUrl) return null;
   return {
     fileName: project.audioFileName,

@@ -21,16 +21,18 @@ export const get = query({
 });
 
 export const list = query({
-  args: { type: v.optional(v.union(v.literal("lyricVideo"), v.literal("sceneProject"))) },
-  handler: async (ctx, { type }) => {
-    if (type) {
-      return ctx.db
-        .query("projects")
-        .withIndex("by_type", (q) => q.eq("type", type))
-        .order("desc")
-        .collect();
-    }
-    return ctx.db.query("projects").withIndex("by_createdAt").order("desc").collect();
+  args: {
+    type: v.optional(v.union(v.literal("lyricVideo"), v.literal("sceneProject"))),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { type, limit = 100 }) => {
+    // Use the compound index when filtering by type so results sort by createdAt.
+    const q = type
+      ? ctx.db
+          .query("projects")
+          .withIndex("by_type_createdAt", (q) => q.eq("type", type))
+      : ctx.db.query("projects").withIndex("by_createdAt");
+    return q.order("desc").take(limit);
   },
 });
 
