@@ -1,0 +1,51 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to push to gh-pages branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static export
+        env:
+          # Add NEXT_PUBLIC_CONVEX_URL in your repository's Settings → Secrets
+          # (Settings → Security → Secrets and variables → Actions → New secret)
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+        run: npm run build
+
+      # GitHub Pages runs Jekyll by default, which ignores _next/ folders.
+      # .nojekyll disables Jekyll so Next.js static assets are served correctly.
+      - name: Add .nojekyll
+        run: touch out/.nojekyll
+
+      # Copy index.html → 404.html so GitHub Pages serves the app shell for
+      # any URL that doesn't have a pre-generated HTML file (e.g. /projects/[id]/...).
+      # The Next.js client-side router then renders the correct page from the URL.
+      - name: Create SPA fallback
+        run: cp out/index.html out/404.html
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+          force_orphan: true
