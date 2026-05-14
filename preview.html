@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LirycVid+ — AI Music Video Studio (Preview)</title>
+  <style>
+    /* ── Design tokens ────────────────────────────────────────────────── */
+    :root {
+      --studio-bg:       #080810;
+      --studio-surface:  #0f0f1c;
+      --studio-elevated: #171728;
+      --studio-border:   #1e1e30;
+      --studio-ring:     #2d2d48;
+      --accent:          #7c3aed;
+      --accent-muted:    rgba(124,58,237,.12);
+      --ink-primary:     #eeeef8;
+      --ink-secondary:   #8080a8;
+      --ink-muted:       #4a4a6a;
+      --ink-accent:      #a78bfa;
+      --status-ready:    #22c55e;
+      --status-gen:      #f59e0b;
+      --status-error:    #ef4444;
+      --radius-card:     .75rem;
+      --radius-studio:   .5rem;
+    }
+
+    /* ── Reset / Base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--studio-bg);
+      color: var(--ink-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { cursor: pointer; border: none; background: none; font: inherit; color: inherit; }
+
+    /* ── Utilities ────────────────────────────────────────────────────── */
+    .surface   { background: var(--studio-surface); border: 1px solid var(--studio-border); border-radius: var(--radius-card); }
+    .surface-el{ background: var(--studio-elevated); border: 1px solid var(--studio-border); border-radius: var(--radius-card); }
+    .hidden    { display: none !important; }
+    .flex      { display: flex; }
+    .flex-col  { display: flex; flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2     { gap: .5rem; }
+    .gap-3     { gap: .75rem; }
+    .gap-4     { gap: 1rem; }
+    .gap-6     { gap: 1.5rem; }
+    .mt-1      { margin-top: .25rem; }
+    .mt-3      { margin-top: .75rem; }
+    .mt-4      { margin-top: 1rem; }
+    .w-full    { width: 100%; }
+    .text-xs   { font-size: .75rem; }
+    .text-sm   { font-size: .875rem; }
+    .text-xl   { font-size: 1.25rem; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .text-secondary { color: var(--ink-secondary); }
+    .text-muted    { color: var(--ink-muted); }
+    .text-accent   { color: var(--ink-accent); }
+    .text-center   { text-align: center; }
+    .rounded-full  { border-radius: 9999px; }
+    .opacity-40    { opacity: .4; }
+    .shrink-0      { flex-shrink: 0; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .375rem;
+      padding: .5rem 1rem; border-radius: var(--radius-studio);
+      font-size: .875rem; font-weight: 500;
+      transition: opacity .15s, background .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--studio-elevated); color: var(--ink-primary); border: 1px solid var(--studio-border); }
+    .btn-ghost     { background: transparent; color: var(--ink-secondary); }
+    .btn-ghost:hover { color: var(--ink-primary); background: var(--studio-elevated); opacity: 1; }
+    .btn-sm        { padding: .3rem .7rem; font-size: .75rem; }
+
+    /* ── Input / Textarea ─────────────────────────────────────────────── */
+    .input, .textarea {
+      width: 100%; padding: .5rem .75rem;
+      background: var(--studio-elevated);
+      border: 1px solid var(--studio-border);
+      border-radius: var(--radius-studio);
+      color: var(--ink-primary); font: inherit; font-size: .875rem;
+      outline: none; transition: border-color .15s;
+    }
+    .input:focus, .textarea:focus { border-color: var(--accent); }
+    .input::placeholder, .textarea::placeholder { color: var(--ink-muted); }
+    .textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+    label { display: block; font-size: .75rem; font-weight: 500; color: var(--ink-secondary); margin-bottom: .375rem; }
+
+    /* ── Header ───────────────────────────────────────────────────────── */
+    .studio-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8,8,16,.85); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--studio-border);
+      padding: 0 1.5rem; height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-size: 1rem; font-weight: 700; letter-spacing: -.02em; }
+    .logo span { color: var(--ink-accent); }
+
+    /* ── Badge ────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .2rem .6rem; border-radius: 9999px;
+      font-size: .7rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .badge-draft   { background: rgba(128,128,168,.12); color: var(--ink-secondary); }
+    .badge-draft .badge-dot { background: var(--ink-muted); }
+    .badge-gen     { background: rgba(245,158,11,.12); color: #f59e0b; }
+    .badge-gen .badge-dot  { background: #f59e0b; animation: pulse 1.2s ease infinite; }
+    .badge-ready   { background: rgba(34,197,94,.12); color: #22c55e; }
+    .badge-ready .badge-dot{ background: #22c55e; }
+    .badge-error   { background: rgba(239,68,68,.12); color: #ef4444; }
+    .badge-error .badge-dot{ background: #ef4444; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Project card ─────────────────────────────────────────────────── */
+    .project-card {
+      background: var(--studio-surface);
+      border: 1px solid var(--studio-border);
+      border-radius: var(--radius-card);
+      padding: 1rem; cursor: pointer;
+      transition: border-color .2s, transform .15s;
+      display: flex; flex-direction: column; gap: .5rem;
+    }
+    .project-card:hover { border-color: var(--studio-ring); transform: translateY(-1px); }
+    .project-card-thumb {
+      width: 100%; aspect-ratio: 16/9;
+      border-radius: calc(var(--radius-card) - 2px);
+      background: var(--studio-elevated);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: .25rem;
+    }
+    .project-card-type { font-size: .65rem; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .06em; }
+    .project-card-title { font-size: .875rem; font-weight: 600; color: var(--ink-primary); line-height: 1.3; }
+    .project-card-meta  { font-size: .7rem; color: var(--ink-muted); }
+
+    /* ── Grid ─────────────────────────────────────────────────────────── */
+    .project-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────────────────── */
+    .hero { text-align: center; padding: 3rem 1rem 2rem; }
+    .hero h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.03em; margin-bottom: .5rem; }
+    .hero p  { color: var(--ink-secondary); max-width: 480px; margin: 0 auto 1.5rem; }
+
+    /* ── Steps ────────────────────────────────────────────────────────── */
+    .step-indicator { display: flex; align-items: center; gap: .5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .step-bubble {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700;
+    }
+    .step-bubble.active  { background: var(--accent); color: #fff; }
+    .step-bubble.done    { background: rgba(34,197,94,.2); color: #22c55e; }
+    .step-bubble.future  { background: var(--studio-elevated); color: var(--ink-muted); }
+    .step-connector { width: 32px; height: 1px; background: var(--studio-border); }
+
+    /* ── Type cards ───────────────────────────────────────────────────── */
+    .type-card {
+      border: 1px solid var(--studio-border);
+      border-radius: var(--radius-card);
+      padding: 1.25rem; cursor: pointer;
+      transition: border-color .2s, background .2s;
+      display: flex; flex-direction: column; gap: .75rem;
+      text-align: left;
+    }
+    .type-card:hover    { border-color: var(--studio-ring); }
+    .type-card.selected { border-color: rgba(124,58,237,.5); background: var(--accent-muted); }
+    .type-card-icon {
+      width: 40px; height: 40px; border-radius: var(--radius-studio);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .type-card.selected .type-card-icon { background: rgba(124,58,237,.2); }
+    .type-card:not(.selected) .type-card-icon { background: var(--studio-elevated); }
+
+    /* ── Tabs ─────────────────────────────────────────────────────────── */
+    .tabs-list {
+      display: flex; gap: .25rem;
+      background: var(--studio-elevated);
+      border-radius: var(--radius-studio);
+      padding: .25rem; margin-bottom: 1rem;
+    }
+    .tab-trigger {
+      flex: 1; padding: .4rem .75rem; border-radius: calc(var(--radius-studio) - 2px);
+      font-size: .8rem; font-weight: 500; color: var(--ink-secondary);
+      transition: background .15s, color .15s;
+    }
+    .tab-trigger.active { background: var(--studio-surface); color: var(--ink-primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Audio card ───────────────────────────────────────────────────── */
+    .audio-card {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .75rem 1rem;
+      background: var(--studio-elevated);
+      border: 1px solid var(--studio-border);
+      border-radius: var(--radius-studio);
+    }
+    .audio-icon {
+      width: 36px; height: 36px; border-radius: var(--radius-studio);
+      background: rgba(124,58,237,.15);
+      display: flex; align-items: center; justify-content: center;
+      shrink-0: 0;
+    }
+    .audio-upload {
+      border: 2px dashed var(--studio-border);
+      border-radius: var(--radius-card);
+      padding: 2rem; text-align: center;
+      color: var(--ink-muted); font-size: .875rem;
+      transition: border-color .2s;
+    }
+    .audio-upload:hover { border-color: var(--accent); color: var(--ink-secondary); }
+
+    /* ── Mood chips ───────────────────────────────────────────────────── */
+    .mood-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .mood-chip {
+      padding: .3rem .75rem; border-radius: 9999px;
+      border: 1px solid var(--studio-border);
+      font-size: .75rem; font-weight: 500; color: var(--ink-secondary);
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .mood-chip:hover    { border-color: var(--studio-ring); color: var(--ink-primary); }
+    .mood-chip.selected { border-color: var(--accent); color: var(--ink-accent); background: var(--accent-muted); }
+
+    /* ── Lyric line ───────────────────────────────────────────────────── */
+    .lyric-line {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .5rem .75rem;
+      border-radius: var(--radius-studio);
+      border: 1px solid transparent;
+      transition: background .15s;
+    }
+    .lyric-line:hover { background: var(--studio-elevated); }
+    .lyric-line.active {
+      background: var(--accent-muted);
+      border-color: rgba(124,58,237,.25);
+      color: var(--ink-accent);
+    }
+    .lyric-time { font-size: .7rem; color: var(--ink-muted); min-width: 52px; font-variant-numeric: tabular-nums; }
+
+    /* ── Preview player ───────────────────────────────────────────────── */
+    .preview-player {
+      background: #000;
+      border-radius: var(--radius-card);
+      aspect-ratio: 16/9;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .player-lyrics {
+      position: absolute; bottom: 15%; left: 0; right: 0;
+      text-align: center; padding: 0 1.5rem;
+      font-size: 1.25rem; font-weight: 700; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.8);
+      letter-spacing: .02em;
+    }
+    .player-controls {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,.7));
+      padding: .75rem 1rem .5rem;
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .progress-bar {
+      flex: 1; height: 3px; background: rgba(255,255,255,.2);
+      border-radius: 9999px; overflow: hidden;
+    }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 9999px; width: 30%; }
+
+    /* ── Scene card ───────────────────────────────────────────────────── */
+    .scene-card {
+      background: var(--studio-elevated);
+      border: 1px solid var(--studio-border);
+      border-radius: var(--radius-card);
+      overflow: hidden; cursor: pointer;
+      transition: border-color .2s;
+    }
+    .scene-card:hover { border-color: var(--studio-ring); }
+    .scene-card.selected { border-color: var(--accent); }
+    .scene-thumb {
+      aspect-ratio: 16/9; background: #0a0a18;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scene-info { padding: .75rem; }
+    .scene-number { font-size: .65rem; color: var(--ink-muted); margin-bottom: .2rem; }
+
+    /* ── Main layout ──────────────────────────────────────────────────── */
+    .main-container { max-width: 1280px; margin: 0 auto; padding: 1.5rem; }
+    .workspace-grid { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; }
+    .workspace-grid-scene { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; }
+    @media (max-width: 1024px) {
+      .workspace-grid, .workspace-grid-scene { grid-template-columns: 1fr; }
+    }
+    .section-gap { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Page routing ─────────────────────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Skeleton ─────────────────────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--studio-elevated) 25%, var(--studio-border) 50%, var(--studio-elevated) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: var(--radius-studio);
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── Toasts ───────────────────────────────────────────────────────── */
+    .toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; display: flex; flex-direction: column; gap: .5rem; z-index: 999; }
+    .toast {
+      background: var(--studio-elevated);
+      border: 1px solid var(--studio-border);
+      border-radius: var(--radius-studio);
+      padding: .75rem 1rem; font-size: .875rem;
+      display: flex; align-items: center; gap: .5rem;
+      animation: slideIn .2s ease;
+      max-width: 320px;
+    }
+    @keyframes slideIn { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+
+    /* ── SVG icons ────────────────────────────────────────────────────── */
+    .icon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+    .icon-lg { width: 20px; height: 20px; }
+    .icon-xl { width: 28px; height: 28px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ TOAST -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <header class="studio-header">
+    <div class="logo">Lyryc<span>Vid+</span></div>
+    <button class="btn btn-primary btn-sm" onclick="navigate('create')">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      New project
+    </button>
+  </header>
+
+  <main class="main-container" style="padding-top:2rem">
+    <div class="hero" style="text-align:left;padding:0 0 2rem">
+      <h1 style="font-size:1.5rem;margin-bottom:.25rem">Your projects</h1>
+      <p style="max-width:none;margin:0;color:var(--ink-secondary)">Create, edit, and export AI-powered music videos.</p>
+    </div>
+
+    <!-- Lyric Videos -->
+    <section style="margin-bottom:2.5rem">
+      <div class="flex items-center gap-2" style="margin-bottom:1rem">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-muted)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span class="font-semibold">Lyric Videos</span>
+        <span class="text-muted text-xs">(2)</span>
+      </div>
+      <div class="project-grid">
+        <div class="project-card" onclick="navigate('lyric')">
+          <div class="project-card-thumb">
+            <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--ink-muted);opacity:.4"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="project-card-type">Lyric Video</div>
+          <div class="project-card-title">Summer Night — Official Lyric Video</div>
+          <div class="flex items-center justify-between">
+            <span class="badge badge-ready"><span class="badge-dot"></span>Ready</span>
+            <span class="project-card-meta">3 days ago</span>
+          </div>
+        </div>
+        <div class="project-card" onclick="navigate('lyric')">
+          <div class="project-card-thumb">
+            <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--ink-muted);opacity:.4"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="project-card-type">Lyric Video</div>
+          <div class="project-card-title">Rainy Day Vibes</div>
+          <div class="flex items-center justify-between">
+            <span class="badge badge-gen"><span class="badge-dot"></span>Generating</span>
+            <span class="project-card-meta">Today</span>
+          </div>
+        </div>
+        <div class="project-card" onclick="navigate('create')" style="border-style:dashed;justify-content:center;align-items:center;min-height:180px;gap:.5rem">
+          <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--ink-muted)"><path d="M12 5v14M5 12h14"/></svg>
+          <span class="text-muted text-sm">New lyric video</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scene Projects -->
+    <section>
+      <div class="flex items-center gap-2" style="margin-bottom:1rem">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-muted)"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        <span class="font-semibold">Scene Projects</span>
+        <span class="text-muted text-xs">(1)</span>
+      </div>
+      <div class="project-grid">
+        <div class="project-card" onclick="navigate('scene')">
+          <div class="project-card-thumb">
+            <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--ink-muted);opacity:.4"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
+          </div>
+          <div class="project-card-type">Scene Project</div>
+          <div class="project-card-title">Midnight Drive — Music Video</div>
+          <div class="flex items-center justify-between">
+            <span class="badge badge-draft"><span class="badge-dot"></span>Draft</span>
+            <span class="project-card-meta">1 week ago</span>
+          </div>
+        </div>
+        <div class="project-card" onclick="navigate('create')" style="border-style:dashed;justify-content:center;align-items:center;min-height:180px;gap:.5rem">
+          <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--ink-muted)"><path d="M12 5v14M5 12h14"/></svg>
+          <span class="text-muted text-sm">New scene project</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ CREATE -->
+<div id="page-create" class="page">
+  <header class="studio-header">
+    <div class="logo">Lyryc<span>Vid+</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')">← Back</button>
+  </header>
+
+  <main class="main-container" style="max-width:680px">
+    <div style="padding-top:2rem">
+
+      <div class="step-indicator" id="step-indicator">
+        <!-- rendered by JS -->
+      </div>
+
+      <!-- Step 1: Type -->
+      <div id="create-step-type">
+        <div style="margin-bottom:1.5rem">
+          <h2 class="text-xl font-semibold">What are you creating?</h2>
+          <p class="text-secondary mt-1">Choose a workflow to begin.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+          <button class="type-card selected" id="type-lyric" onclick="selectType('lyric')">
+            <div class="type-card-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-accent)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold">Lyric Video</span>
+                <span style="font-size:.65rem;color:var(--ink-muted);background:var(--studio-elevated);padding:.1rem .5rem;border-radius:9999px">Best for singles</span>
+              </div>
+              <p style="font-size:.75rem;color:var(--ink-secondary);margin-top:.25rem;line-height:1.5">Sync lyrics line-by-line and generate AI animated visuals.</p>
+            </div>
+          </button>
+          <button class="type-card" id="type-scene" onclick="selectType('scene')">
+            <div class="type-card-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-muted)"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold">Scene Project</span>
+                <span style="font-size:.65rem;color:var(--ink-muted);background:var(--studio-elevated);padding:.1rem .5rem;border-radius:9999px">Best for storytelling</span>
+              </div>
+              <p style="font-size:.75rem;color:var(--ink-secondary);margin-top:.25rem;line-height:1.5">Build shot-by-shot with characters, prompts, and cinematic direction.</p>
+            </div>
+          </button>
+        </div>
+        <div class="flex" style="justify-content:flex-end">
+          <button class="btn btn-primary" onclick="createStep(2)">Continue <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Step 2: Basics -->
+      <div id="create-step-basics" class="hidden">
+        <div style="margin-bottom:1.5rem">
+          <h2 class="text-xl font-semibold">Project basics</h2>
+          <p class="text-secondary mt-1">Give your project a name.</p>
+        </div>
+        <div style="margin-bottom:1rem">
+          <label>Project title</label>
+          <input class="input" id="create-title" placeholder="e.g. 'Summer Night — Lyric Video'" />
+        </div>
+        <div style="margin-bottom:1.5rem" id="summary-field" class="hidden">
+          <label>Project summary <span style="color:var(--ink-muted)">(optional)</span></label>
+          <textarea class="textarea" placeholder="Briefly describe the concept or story of your music video…"></textarea>
+        </div>
+        <div class="flex justify-between">
+          <button class="btn btn-ghost" onclick="createStep(1)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button>
+          <button class="btn btn-primary" onclick="createStep(3)">Continue <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Step 3: Style -->
+      <div id="create-step-style" class="hidden">
+        <div style="margin-bottom:1.5rem">
+          <h2 class="text-xl font-semibold">Visual style</h2>
+          <p class="text-secondary mt-1">Set the mood and look — you can change this later.</p>
+        </div>
+        <div style="margin-bottom:1rem">
+          <label>Mood</label>
+          <div class="mood-grid">
+            <button class="mood-chip selected" onclick="toggleMood(this)">Cinematic</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Dark</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Dreamy</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Energetic</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Romantic</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Retro</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Minimal</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Epic</button>
+          </div>
+        </div>
+        <div style="margin-bottom:1.5rem">
+          <label>Visual style preset</label>
+          <div class="mood-grid">
+            <button class="mood-chip selected" onclick="toggleMood(this)">Bold text</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Neon glow</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Typewriter</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Minimal float</button>
+            <button class="mood-chip" onclick="toggleMood(this)">Karaoke</button>
+          </div>
+        </div>
+        <div class="flex justify-between">
+          <button class="btn btn-ghost" onclick="createStep(2)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button>
+          <button class="btn btn-primary" onclick="handleCreate()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Create project
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════ LYRIC WORKSPACE -->
+<div id="page-lyric" class="page">
+  <header class="studio-header">
+    <div class="logo">Lyryc<span>Vid+</span></div>
+    <div class="flex items-center gap-2">
+      <span class="badge badge-ready"><span class="badge-dot"></span>Ready</span>
+      <button class="btn btn-secondary btn-sm">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')">← Dashboard</button>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="workspace-grid">
+      <!-- Left column -->
+      <div class="section-gap">
+
+        <!-- Title -->
+        <div class="surface" style="padding:1.25rem">
+          <label>Project title</label>
+          <input class="input" value="Summer Night — Official Lyric Video" />
+        </div>
+
+        <!-- Audio -->
+        <div class="surface" style="padding:1.25rem">
+          <div class="flex items-center gap-2" style="margin-bottom:.75rem">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-muted)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span class="font-medium">Audio track</span>
+          </div>
+          <div class="audio-card">
+            <div class="audio-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-accent)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="font-medium text-sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">summer_night_final.mp3</div>
+              <div class="text-muted text-xs">3:42 · 8.4 MB</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="color:var(--status-error)">Remove</button>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="surface" style="padding:1.25rem">
+          <div class="tabs-list">
+            <button class="tab-trigger active" onclick="switchTab('lyric','editor',this)">Lyrics</button>
+            <button class="tab-trigger" onclick="switchTab('lyric','timeline',this)">Timeline</button>
+            <button class="tab-trigger" onclick="switchTab('lyric','style',this)">Style</button>
+          </div>
+
+          <div id="lyric-tab-editor" class="tab-content active">
+            <textarea class="textarea" style="min-height:180px;font-family:monospace;font-size:.8rem">
+[00:04.20] Under the summer night sky
+[00:08.50] Stars are our only light
+[00:12.80] You take my hand and we dance
+[00:17.10] In this beautiful chance
+[00:21.40] And I never want this moment to end
+[00:26.00] Baby, let's stay here until morning
+            </textarea>
+            <div class="flex" style="margin-top:.75rem;gap:.5rem;justify-content:flex-end">
+              <button class="btn btn-secondary btn-sm" onclick="toast('✓ Lines imported from LRC')">Import LRC</button>
+              <button class="btn btn-secondary btn-sm" onclick="toast('✓ Lines synced to audio')">Parse & sync</button>
+            </div>
+          </div>
+
+          <div id="lyric-tab-timeline" class="tab-content">
+            <div style="display:flex;flex-direction:column;gap:.25rem">
+              <div class="lyric-line active">
+                <span class="lyric-time">0:04.2</span>
+                <span style="flex:1">Under the summer night sky</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="toast('Timestamp stamped')">Stamp</button>
+              </div>
+              <div class="lyric-line">
+                <span class="lyric-time">0:08.5</span>
+                <span style="flex:1">Stars are our only light</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="toast('Timestamp stamped')">Stamp</button>
+              </div>
+              <div class="lyric-line">
+                <span class="lyric-time">0:12.8</span>
+                <span style="flex:1">You take my hand and we dance</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="toast('Timestamp stamped')">Stamp</button>
+              </div>
+              <div class="lyric-line">
+                <span class="lyric-time">0:17.1</span>
+                <span style="flex:1">In this beautiful chance</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="toast('Timestamp stamped')">Stamp</button>
+              </div>
+              <div class="lyric-line">
+                <span class="lyric-time">0:21.4</span>
+                <span style="flex:1">And I never want this moment to end</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="toast('Timestamp stamped')">Stamp</button>
+              </div>
+              <div class="lyric-line">
+                <span class="lyric-time">0:26.0</span>
+                <span style="flex:1">Baby, let's stay here until morning</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="toast('Timestamp stamped')">Stamp</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="lyric-tab-style" class="tab-content">
+            <div style="display:flex;flex-direction:column;gap:1rem">
+              <div>
+                <label>Mood</label>
+                <div class="mood-grid">
+                  <button class="mood-chip selected" onclick="toggleMood(this)">Cinematic</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Dark</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Dreamy</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Energetic</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Romantic</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Retro</button>
+                </div>
+              </div>
+              <div>
+                <label>Lyric display style</label>
+                <div class="mood-grid">
+                  <button class="mood-chip selected" onclick="toggleMood(this)">Bold text</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Neon glow</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Typewriter</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Minimal float</button>
+                  <button class="mood-chip" onclick="toggleMood(this)">Karaoke</button>
+                </div>
+              </div>
+              <div>
+                <label>Background prompt</label>
+                <textarea class="textarea" placeholder="Describe the visual background… e.g. 'rain-soaked city at midnight, neon reflections'">cinematic night sky, bokeh stars, purple and blue hues</textarea>
+              </div>
+              <button class="btn btn-primary w-full" onclick="simulateGenerate()">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.813 1.9a2 2 0 0 1 1.287 1.287L12 21l1.9-5.813a2 2 0 0 1 1.288-1.287L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/></svg>
+                Generate background
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: Preview -->
+      <div style="display:flex;flex-direction:column;gap:1rem">
+        <div class="preview-player" id="lyric-player">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0d0d2b 0%,#1a0a30 50%,#0a0a20 100%)"></div>
+          <!-- simulated bokeh dots -->
+          <div style="position:absolute;inset:0;overflow:hidden">
+            <div style="position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(167,139,250,.5);top:20%;left:30%;animation:twinkle 2.5s ease infinite"></div>
+            <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:rgba(167,139,250,.4);top:35%;left:60%;animation:twinkle 3s ease infinite .5s"></div>
+            <div style="position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.3);top:15%;left:75%;animation:twinkle 2s ease infinite 1s"></div>
+            <div style="position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(124,58,237,.3);top:55%;left:20%;animation:twinkle 3.5s ease infinite .2s"></div>
+            <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,.4);top:70%;left:85%;animation:twinkle 2.2s ease infinite .8s"></div>
+          </div>
+          <div class="player-lyrics" id="player-lyrics-text">Under the summer night sky</div>
+          <div class="player-controls">
+            <button onclick="togglePlay()" id="play-btn" style="color:#fff;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <span style="font-size:.7rem;color:rgba(255,255,255,.6)">0:04 / 3:42</span>
+          </div>
+        </div>
+        <p class="text-center text-xs text-muted">Audio is the master sync source. Video is muted.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════ SCENE WORKSPACE -->
+<div id="page-scene" class="page">
+  <header class="studio-header">
+    <div class="logo">Lyryc<span>Vid+</span></div>
+    <div class="flex items-center gap-2">
+      <span class="badge badge-draft"><span class="badge-dot"></span>Draft</span>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')">← Dashboard</button>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+      <!-- Top strip -->
+      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem">
+        <div class="surface" style="padding:1rem">
+          <div class="flex items-center gap-2" style="margin-bottom:.75rem">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-muted)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span class="font-medium text-sm">Master audio track</span>
+          </div>
+          <div class="audio-card">
+            <div class="audio-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-accent)"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="font-medium text-sm">midnight_drive_master.mp3</div>
+              <div class="text-muted text-xs">4:18 · 10.2 MB</div>
+            </div>
+          </div>
+        </div>
+        <div class="surface" style="padding:1rem;min-width:200px">
+          <div class="flex items-center gap-2" style="margin-bottom:.5rem">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-muted)"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+            <span class="font-medium text-sm">Overview</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.25rem;margin-bottom:.75rem">
+            <p class="text-xs text-secondary">4 scenes total</p>
+            <p class="text-xs text-secondary">2 clips ready</p>
+            <p class="text-xs text-secondary">2 characters</p>
+          </div>
+          <button class="btn btn-secondary btn-sm w-full" onclick="toast('Generating all scenes…')">Generate all</button>
+        </div>
+      </div>
+
+      <!-- Workspace: storyboard + editor -->
+      <div class="workspace-grid-scene">
+        <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+          <!-- Characters -->
+          <div class="surface" style="padding:1.25rem">
+            <div class="flex items-center justify-between" style="margin-bottom:1rem">
+              <span class="font-medium text-sm">Characters</span>
+              <button class="btn btn-secondary btn-sm" onclick="toast('Add character modal…')">+ Add</button>
+            </div>
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+              <div class="surface-el" style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:var(--radius-studio)">
+                <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-muted);display:flex;align-items:center;justify-content:center">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-accent)"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div>
+                  <div class="text-sm font-medium">Aria</div>
+                  <div class="text-xs text-muted">Lead vocalist</div>
+                </div>
+              </div>
+              <div class="surface-el" style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border-radius:var(--radius-studio)">
+                <div style="width:28px;height:28px;border-radius:50%;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#22c55e"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div>
+                  <div class="text-sm font-medium">Marcus</div>
+                  <div class="text-xs text-muted">Supporting role</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Storyboard -->
+          <div class="surface" style="padding:1.25rem">
+            <div class="flex items-center justify-between" style="margin-bottom:1rem">
+              <span class="font-medium text-sm">Storyboard</span>
+              <button class="btn btn-secondary btn-sm" onclick="toast('Adding scene…')">+ Scene</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem">
+              <div class="scene-card selected" onclick="selectScene(this,0)">
+                <div class="scene-thumb">
+                  <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="color:#22c55e;opacity:.5"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8z"/></svg>
+                </div>
+                <div class="scene-info">
+                  <div class="scene-number">Scene 1</div>
+                  <div class="text-sm font-medium">City highway at night</div>
+                  <span class="badge badge-ready" style="margin-top:.375rem"><span class="badge-dot"></span>Ready</span>
+                </div>
+              </div>
+              <div class="scene-card" onclick="selectScene(this,1)">
+                <div class="scene-thumb">
+                  <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="color:#22c55e;opacity:.5"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8z"/></svg>
+                </div>
+                <div class="scene-info">
+                  <div class="scene-number">Scene 2</div>
+                  <div class="text-sm font-medium">Rain on windshield close-up</div>
+                  <span class="badge badge-ready" style="margin-top:.375rem"><span class="badge-dot"></span>Ready</span>
+                </div>
+              </div>
+              <div class="scene-card" onclick="selectScene(this,2)">
+                <div class="scene-thumb">
+                  <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="color:var(--ink-muted);opacity:.3"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
+                </div>
+                <div class="scene-info">
+                  <div class="scene-number">Scene 3</div>
+                  <div class="text-sm font-medium">Aria singing in car</div>
+                  <span class="badge badge-gen" style="margin-top:.375rem"><span class="badge-dot"></span>Generating</span>
+                </div>
+              </div>
+              <div class="scene-card" onclick="selectScene(this,3)">
+                <div class="scene-thumb">
+                  <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="color:var(--ink-muted);opacity:.3"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
+                </div>
+                <div class="scene-info">
+                  <div class="scene-number">Scene 4</div>
+                  <div class="text-sm font-medium">Neon bridge time-lapse</div>
+                  <span class="badge badge-draft" style="margin-top:.375rem"><span class="badge-dot"></span>Draft</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scene editor panel -->
+        <div class="surface-el" style="padding:1.25rem;position:sticky;top:72px;height:fit-content" id="scene-editor">
+          <div style="margin-bottom:1rem">
+            <div class="text-xs text-muted" style="margin-bottom:.25rem">Scene 1</div>
+            <div class="font-semibold">City highway at night</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.875rem">
+            <div>
+              <label>Visual description</label>
+              <textarea class="textarea" style="min-height:80px">Cinematic wide shot of a city highway at night, neon signs reflecting on wet asphalt, Aria walking alone in slow motion</textarea>
+            </div>
+            <div>
+              <label>Camera direction</label>
+              <input class="input" value="Dolly forward, shallow depth of field" />
+            </div>
+            <div>
+              <label>Character</label>
+              <select class="input" style="cursor:pointer">
+                <option>Aria</option>
+                <option>Marcus</option>
+                <option>None</option>
+              </select>
+            </div>
+            <div>
+              <label>Clip duration</label>
+              <input class="input" type="number" value="5" min="3" max="10" />
+            </div>
+            <div class="surface" style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:#000;border-radius:var(--radius-studio)">
+              <div style="display:flex;align-items:center;gap:.5rem;color:#22c55e;font-size:.8rem">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8z"/></svg>
+                Clip ready
+              </div>
+            </div>
+            <button class="btn btn-secondary w-full" onclick="toast('Regenerating clip…')">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Regenerate clip
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<style>
+  @keyframes twinkle { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.4)} }
+</style>
+
+<script>
+  /* ── Router ───────────────────────────────────────────────────────── */
+  let currentPage = 'dashboard';
+
+  function navigate(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    currentPage = page;
+    window.scrollTo(0, 0);
+    if (page === 'create') initCreate();
+  }
+
+  /* ── Create flow ──────────────────────────────────────────────────── */
+  let createCurrentStep = 1;
+  let selectedType = 'lyric';
+
+  function initCreate() {
+    createCurrentStep = 1;
+    showCreateStep(1);
+    renderStepIndicator();
+  }
+
+  function createStep(n) {
+    createCurrentStep = n;
+    showCreateStep(n);
+    renderStepIndicator();
+  }
+
+  function showCreateStep(n) {
+    ['type','basics','style'].forEach((s, i) => {
+      document.getElementById('create-step-' + s).classList.toggle('hidden', i + 1 !== n);
+    });
+    const summaryField = document.getElementById('summary-field');
+    if (summaryField) summaryField.classList.toggle('hidden', selectedType !== 'scene');
+  }
+
+  function renderStepIndicator() {
+    const steps = ['Type', 'Basics', 'Style'];
+    const el = document.getElementById('step-indicator');
+    el.innerHTML = steps.map((s, i) => {
+      const n = i + 1;
+      const cls = n === createCurrentStep ? 'active' : n < createCurrentStep ? 'done' : 'future';
+      const inner = cls === 'done'
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
+        : n;
+      return `
+        ${i > 0 ? '<div class="step-connector"></div>' : ''}
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <div class="step-bubble ${cls}">${inner}</div>
+          <span style="font-size:.875rem;color:${n === createCurrentStep ? 'var(--ink-primary)' : 'var(--ink-muted)'};font-weight:${n === createCurrentStep ? '500' : '400'}">${s}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function selectType(t) {
+    selectedType = t;
+    document.getElementById('type-lyric').classList.toggle('selected', t === 'lyric');
+    document.getElementById('type-scene').classList.toggle('selected', t === 'scene');
+    // icon colors
+    document.querySelectorAll('#type-lyric svg, #type-scene svg').forEach(svg => {
+      svg.style.color = 'var(--ink-muted)';
+    });
+    document.querySelector('#type-' + t + ' svg').style.color = 'var(--ink-accent)';
+  }
+
+  function handleCreate() {
+    const title = document.getElementById('create-title').value.trim() || 'Untitled Project';
+    toast('✓ Project "' + title + '" created!');
+    setTimeout(() => navigate(selectedType === 'lyric' ? 'lyric' : 'scene'), 400);
+  }
+
+  /* ── Tabs ─────────────────────────────────────────────────────────── */
+  function switchTab(page, tab, btn) {
+    const prefix = page + '-tab-';
+    document.querySelectorAll('[id^="' + prefix + '"]').forEach(t => t.classList.remove('active'));
+    document.getElementById(prefix + tab).classList.add('active');
+    btn.closest('.tabs-list').querySelectorAll('.tab-trigger').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  /* ── Mood chips ───────────────────────────────────────────────────── */
+  function toggleMood(btn) {
+    btn.classList.toggle('selected');
+    toast('Mood updated');
+  }
+
+  /* ── Preview player ───────────────────────────────────────────────── */
+  const lyrics = [
+    'Under the summer night sky',
+    'Stars are our only light',
+    'You take my hand and we dance',
+    'In this beautiful chance',
+    'And I never want this moment to end',
+    "Baby, let's stay here until morning",
+  ];
+  let playing = false;
+  let lyricIdx = 0;
+  let progress = 30; // %
+  let raf = null;
+
+  function togglePlay() {
+    playing = !playing;
+    const btn = document.getElementById('play-btn');
+    if (playing) {
+      btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      animatePlayer();
+    } else {
+      btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+      cancelAnimationFrame(raf);
+    }
+  }
+
+  let lastTime = null;
+  function animatePlayer(ts) {
+    if (!lastTime) lastTime = ts;
+    const delta = (ts - lastTime) / 1000;
+    lastTime = ts;
+    progress = Math.min(progress + delta * 1.5, 100);
+    document.getElementById('progress-fill').style.width = progress + '%';
+    lyricIdx = Math.floor((progress / 100) * lyrics.length);
+    document.getElementById('player-lyrics-text').textContent = lyrics[Math.min(lyricIdx, lyrics.length - 1)];
+    if (progress >= 100) { playing = false; progress = 0; lastTime = null; return; }
+    raf = requestAnimationFrame(animatePlayer);
+  }
+
+  /* ── Scene selection ──────────────────────────────────────────────── */
+  const sceneData = [
+    { title: 'City highway at night', status: 'ready', desc: 'Cinematic wide shot of a city highway at night, neon signs reflecting on wet asphalt, Aria walking alone in slow motion', camera: 'Dolly forward, shallow depth of field', char: 'Aria' },
+    { title: 'Rain on windshield close-up', status: 'ready', desc: 'Extreme close-up of raindrops on a car windshield, city lights blur in background, moody and atmospheric', camera: 'Static, macro lens', char: 'None' },
+    { title: 'Aria singing in car', status: 'generating', desc: 'Aria in driver seat singing, intimate interior light, warm vs cold colour contrast through window', camera: 'Over-the-shoulder then front-facing', char: 'Aria' },
+    { title: 'Neon bridge time-lapse', status: 'draft', desc: 'Time-lapse of cars crossing a neon-lit bridge, long exposure light trails, wide establishing shot', camera: 'Wide static, tripod', char: 'None' },
+  ];
+
+  function selectScene(card, idx) {
+    document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    const d = sceneData[idx];
+    const ed = document.getElementById('scene-editor');
+    const statusBadge = d.status === 'ready'
+      ? '<span class="badge badge-ready"><span class="badge-dot"></span>Ready</span>'
+      : d.status === 'generating'
+      ? '<span class="badge badge-gen"><span class="badge-dot"></span>Generating</span>'
+      : '<span class="badge badge-draft"><span class="badge-dot"></span>Draft</span>';
+    const thumbContent = d.status === 'ready'
+      ? '<div style="display:flex;align-items:center;gap:.5rem;color:#22c55e;font-size:.8rem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8z"/></svg>Clip ready</div>'
+      : d.status === 'generating'
+      ? '<div style="color:var(--ink-muted);font-size:.8rem">⏳ Generating…</div>'
+      : '<div style="color:var(--ink-muted);font-size:.8rem;text-align:center">No clip yet.<br><span style="font-size:.7rem">Click Generate to create.</span></div>';
+    ed.innerHTML = `
+      <div style="margin-bottom:1rem">
+        <div class="text-xs text-muted" style="margin-bottom:.25rem">Scene ${idx + 1}</div>
+        <div class="font-semibold">${d.title}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.875rem">
+        <div><label>Visual description</label><textarea class="textarea" style="min-height:80px">${d.desc}</textarea></div>
+        <div><label>Camera direction</label><input class="input" value="${d.camera}" /></div>
+        <div><label>Character</label>
+          <select class="input" style="cursor:pointer">
+            <option${d.char==='Aria'?' selected':''}>Aria</option>
+            <option${d.char==='Marcus'?' selected':''}>Marcus</option>
+            <option${d.char==='None'?' selected':''}>None</option>
+          </select>
+        </div>
+        <div><label>Clip duration</label><input class="input" type="number" value="5" min="3" max="10" /></div>
+        <div class="surface" style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:#000;border-radius:var(--radius-studio)">${thumbContent}</div>
+        ${statusBadge}
+        <button class="btn btn-${d.status==='ready'?'secondary':'primary'} w-full" onclick="toast('${d.status==='ready'?'Regenerating':'Generating'} clip for Scene ${idx + 1}…')">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${d.status==='ready'?'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5':'m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.813 1.9a2 2 0 0 1 1.287 1.287L12 21l1.9-5.813a2 2 0 0 1 1.288-1.287L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z'}"/></svg>
+          ${d.status === 'ready' ? 'Regenerate clip' : 'Generate clip'}
+        </button>
+      </div>`;
+  }
+
+  /* ── Generate simulation ──────────────────────────────────────────── */
+  function simulateGenerate() {
+    toast('⚡ Sending to Replicate…');
+    setTimeout(() => toast('🎨 Background image generated!'), 2500);
+  }
+
+  /* ── Toast ────────────────────────────────────────────────────────── */
+  function toast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    document.getElementById('toasts').prepend(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+</script>
+</body>
+</html>
