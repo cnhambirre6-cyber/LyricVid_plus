@@ -215,6 +215,10 @@ export const getSceneProjectWorkspace = query({
       characters,
       scenes,
 
+      // — Lyrics (used as visual fallback when a scene has no description)
+      rawLyrics: sceneProject?.rawLyrics ?? "",
+      summary: sceneProject?.summary ?? "",
+
       // — Final assembly
       stitchStatus: sceneProject?.stitchStatus ?? ("pending" as const),
       finalVideoUrl: sceneProject?.finalVideoUrl,

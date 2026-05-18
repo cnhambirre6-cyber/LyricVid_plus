@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -13,8 +13,9 @@ import { SceneStoryboard } from "@/components/scene/SceneStoryboard";
 import { SceneEditorPanel } from "@/components/scene/SceneEditorPanel";
 import { GenerationStatusBadge } from "@/components/shared/GenerationStatusBadge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Scissors, Download, Music2, Layers } from "lucide-react";
+import { Scissors, Download, Music2, Layers, FileText } from "lucide-react";
 import type { SceneRef } from "@/lib/workspaceTypes";
 
 export function SceneProjectWorkspaceClient() {
@@ -27,10 +28,32 @@ export function SceneProjectWorkspaceClient() {
   const generateClip = useAction(api.generation.generateSceneClip);
   const startStitch = useMutation(api.sceneAssembly.startFinalStitch);
   const assembleVideo = useAction(api.sceneAssembly.assembleFinalVideo);
+  const updateSceneContent = useMutation(api.sceneProjects.updateContent);
 
   const [selectedSceneId, setSelectedSceneId] = useState<Id<"scenes"> | null>(null);
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
   const [stitching, setStitching] = useState(false);
+  const [rawLyrics, setRawLyrics] = useState("");
+
+  const lyricsInitialized = useRef(false);
+  const lyricsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initialise lyrics field once workspace loads (don't overwrite local edits)
+  if (workspace && !lyricsInitialized.current) {
+    lyricsInitialized.current = true;
+    setRawLyrics(workspace.rawLyrics);
+  }
+
+  const handleLyricsChange = useCallback(
+    (v: string) => {
+      setRawLyrics(v);
+      if (lyricsSaveTimer.current) clearTimeout(lyricsSaveTimer.current);
+      lyricsSaveTimer.current = setTimeout(() => {
+        updateSceneContent({ projectId, rawLyrics: v });
+      }, 800);
+    },
+    [projectId, updateSceneContent]
+  );
 
   const scenes = workspace?.scenes ?? [];
   const characters = workspace?.characters ?? [];
@@ -153,6 +176,25 @@ export function SceneProjectWorkspaceClient() {
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Lyrics panel — used as visual fallback for scenes without a description */}
+        <div className="surface p-5 flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <FileText className="h-4 w-4 text-ink-muted mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-ink-primary">Song lyrics</span>
+              <span className="text-xs text-ink-secondary">
+                Scenes with no visual description will use these lyrics to generate visuals automatically.
+              </span>
+            </div>
+          </div>
+          <Textarea
+            value={rawLyrics}
+            onChange={(e) => handleLyricsChange(e.target.value)}
+            placeholder={"Paste the song lyrics here…\n\nWhen a scene has no description, the AI will use the lyrics as the visual reference for that scene."}
+            className="min-h-[120px] font-mono text-xs"
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">

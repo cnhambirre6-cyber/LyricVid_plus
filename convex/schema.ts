@@ -72,6 +72,8 @@ export default defineSchema({
   sceneProjects: defineTable({
     projectId: v.id("projects"),
     summary: v.optional(v.string()),
+    // Raw lyrics text — used as visual fallback when a scene has no description
+    rawLyrics: v.optional(v.string()),
     stitchStatus: stitchStatus,
     finalVideoUrl: v.optional(v.string()),
     finalVideoStorageId: v.optional(v.id("_storage")),

@@ -125,9 +125,20 @@ export const preparePrompt = mutation({
     const scene = await ctx.db.get(id);
     if (!scene) throw new Error("Scene not found");
 
-    const character = scene.assignedCharacterId
-      ? await ctx.db.get(scene.assignedCharacterId)
-      : null;
+    const [character, sceneProject] = await Promise.all([
+      scene.assignedCharacterId ? ctx.db.get(scene.assignedCharacterId) : null,
+      ctx.db
+        .query("sceneProjects")
+        .withIndex("by_project", (q) => q.eq("projectId", scene.projectId))
+        .first(),
+    ]);
+
+    // If the scene has no visual description, fall back to the project lyrics.
+    const visualBase =
+      scene.description?.trim() ||
+      (sceneProject?.rawLyrics
+        ? `Music video visuals based on lyrics: ${sceneProject.rawLyrics}`
+        : "music video scene");
 
     const parts: string[] = [];
     if (character?.name && character?.description) {
@@ -135,7 +146,7 @@ export const preparePrompt = mutation({
     } else if (character?.name) {
       parts.push(character.name);
     }
-    parts.push(scene.description);
+    parts.push(visualBase);
     if (scene.mood) parts.push(`${scene.mood} mood`);
     if (scene.stylePreset) parts.push(scene.stylePreset);
     if (scene.cinematicDirection) parts.push(scene.cinematicDirection);

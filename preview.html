@@ -746,6 +746,21 @@
         </div>
       </div>
 
+      <!-- Lyrics panel -->
+      <div class="surface" style="padding:1.25rem;display:flex;flex-direction:column;gap:.75rem">
+        <div style="display:flex;align-items:flex-start;gap:.625rem">
+          <svg class="icon shrink-0" style="margin-top:2px;color:var(--ink-muted)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <div>
+            <div class="font-medium text-sm">Song lyrics</div>
+            <div class="text-xs text-secondary mt-1">Cenas sem descrição visual irão usar estas letras para gerar as visualizações automaticamente.</div>
+          </div>
+        </div>
+        <textarea id="scene-lyrics" class="textarea" style="min-height:110px;font-family:monospace;font-size:.75rem" placeholder="Cola aqui a letra da música…&#10;&#10;Quando uma cena não tem descrição, a IA usa a letra como referência visual para essa cena." oninput="saveLyrics(this.value)"></textarea>
+        <div id="lyrics-hint" style="display:none;font-size:.7rem;color:var(--ink-accent);padding:.25rem .5rem;background:var(--accent-muted);border-radius:var(--radius-studio)">
+          ✓ Letras guardadas — serão usadas como fallback visual nas cenas sem descrição.
+        </div>
+      </div>
+
       <!-- Workspace: storyboard + editor -->
       <div class="workspace-grid-scene">
         <div style="display:flex;flex-direction:column;gap:1.5rem">
@@ -1008,14 +1023,19 @@
     { title: 'City highway at night', status: 'ready', desc: 'Cinematic wide shot of a city highway at night, neon signs reflecting on wet asphalt, Aria walking alone in slow motion', camera: 'Dolly forward, shallow depth of field', char: 'Aria' },
     { title: 'Rain on windshield close-up', status: 'ready', desc: 'Extreme close-up of raindrops on a car windshield, city lights blur in background, moody and atmospheric', camera: 'Static, macro lens', char: 'None' },
     { title: 'Aria singing in car', status: 'generating', desc: 'Aria in driver seat singing, intimate interior light, warm vs cold colour contrast through window', camera: 'Over-the-shoulder then front-facing', char: 'Aria' },
-    { title: 'Neon bridge time-lapse', status: 'draft', desc: 'Time-lapse of cars crossing a neon-lit bridge, long exposure light trails, wide establishing shot', camera: 'Wide static, tripod', char: 'None' },
+    { title: 'Neon bridge time-lapse', status: 'draft', desc: '', camera: 'Wide static, tripod', char: 'None' },
   ];
+  // "desc: ''" simulates a scene with no visual description — the lyrics fallback kicks in.
 
   function selectScene(card, idx) {
     document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     const d = sceneData[idx];
     const ed = document.getElementById('scene-editor');
+    const lyrics = document.getElementById('scene-lyrics')?.value ?? '';
+    const hasDesc = d.desc.trim().length > 0;
+    const usingLyricsFallback = !hasDesc && lyrics.trim().length > 0;
+
     const statusBadge = d.status === 'ready'
       ? '<span class="badge badge-ready"><span class="badge-dot"></span>Ready</span>'
       : d.status === 'generating'
@@ -1026,13 +1046,30 @@
       : d.status === 'generating'
       ? '<div style="color:var(--ink-muted);font-size:.8rem">⏳ Generating…</div>'
       : '<div style="color:var(--ink-muted);font-size:.8rem;text-align:center">No clip yet.<br><span style="font-size:.7rem">Click Generate to create.</span></div>';
+
+    const lyricsFallbackBanner = usingLyricsFallback
+      ? `<div style="display:flex;align-items:flex-start;gap:.5rem;padding:.6rem .75rem;background:var(--accent-muted);border:1px solid rgba(124,58,237,.25);border-radius:var(--radius-studio);font-size:.72rem;color:var(--ink-accent)">
+           <svg style="width:13px;height:13px;flex-shrink:0;margin-top:1px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+           <span>Sem descrição — a IA vai usar a <strong>letra da música</strong> como referência visual para esta cena.</span>
+         </div>`
+      : !hasDesc
+      ? `<div style="display:flex;align-items:flex-start;gap:.5rem;padding:.6rem .75rem;background:rgba(128,128,168,.08);border:1px solid var(--studio-border);border-radius:var(--radius-studio);font-size:.72rem;color:var(--ink-secondary)">
+           <svg style="width:13px;height:13px;flex-shrink:0;margin-top:1px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+           <span>Sem descrição e sem letra carregada — adiciona uma descrição ou cola a letra da música acima.</span>
+         </div>`
+      : '';
+
     ed.innerHTML = `
       <div style="margin-bottom:1rem">
         <div class="text-xs text-muted" style="margin-bottom:.25rem">Scene ${idx + 1}</div>
         <div class="font-semibold">${d.title}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:.875rem">
-        <div><label>Visual description</label><textarea class="textarea" style="min-height:80px">${d.desc}</textarea></div>
+        <div>
+          <label>Visual description <span style="color:var(--ink-muted);font-weight:400">(opcional)</span></label>
+          <textarea class="textarea" style="min-height:80px" placeholder="Deixa em branco para usar a letra da música como referência visual…">${d.desc}</textarea>
+        </div>
+        ${lyricsFallbackBanner}
         <div><label>Camera direction</label><input class="input" value="${d.camera}" /></div>
         <div><label>Character</label>
           <select class="input" style="cursor:pointer">
@@ -1049,6 +1086,16 @@
           ${d.status === 'ready' ? 'Regenerate clip' : 'Generate clip'}
         </button>
       </div>`;
+  }
+
+  /* ── Lyrics save ──────────────────────────────────────────────────── */
+  let lyricsSaveTimer = null;
+  function saveLyrics(v) {
+    clearTimeout(lyricsSaveTimer);
+    lyricsSaveTimer = setTimeout(() => {
+      document.getElementById('lyrics-hint').style.display = v.trim() ? 'block' : 'none';
+      toast('Letra guardada');
+    }, 800);
   }
 
   /* ── Generate simulation ──────────────────────────────────────────── */

@@ -21,6 +21,21 @@ export const updateSummary = mutation({
   },
 });
 
+export const updateContent = mutation({
+  args: {
+    projectId: v.id("projects"),
+    rawLyrics: v.optional(v.string()),
+    summary: v.optional(v.string()),
+  },
+  handler: async (ctx, { projectId, ...fields }) => {
+    const existing = await ctx.db
+      .query("sceneProjects")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .first();
+    if (existing) await ctx.db.patch(existing._id, fields);
+  },
+});
+
 // NOTE: setStitchStatus and linkFinalVideo are intentionally omitted.
 // All stitch status transitions are handled atomically by the generationJobs
 // mark* helpers (markFinalStitchStarted / markFinalStitchCompleted /
