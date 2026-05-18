@@ -12,7 +12,20 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "LirycVid+ — AI Music Video Studio",
   description: "Turn your song into a visual story. Generate lyric videos and scene-based music videos with AI.",
-  icons: { icon: "/favicon.ico" },
+  manifest: "/LyricVid_plus/manifest.json",
+  themeColor: "#7c3aed",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "LirycVid+",
+  },
+  icons: {
+    icon: [
+      { url: "/LyricVid_plus/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/LyricVid_plus/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/LyricVid_plus/icons/icon-152.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

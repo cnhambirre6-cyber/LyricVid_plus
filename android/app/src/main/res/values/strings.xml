@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LirycVid+</string>
+    <string name="title_activity_main">LirycVid+</string>
+    <string name="package_name">com.lirycvidplus.app</string>
+    <string name="custom_url_scheme">com.lirycvidplus.app</string>
+</resources>
